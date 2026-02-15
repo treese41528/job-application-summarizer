@@ -4,7 +4,7 @@ An LLM-powered pipeline that processes faculty job applications — configurable
 
 Default configuration targets a **Visiting Assistant Professor (Teaching Focus, 2-year)** position in the Department of Statistics at Purdue University, but position profiles can be swapped via `--position` for tenure-track, research-focused, lecturer, or other searches.
 
-> 📖 **[Full Technical Documentation](docs/DOCUMENTATION.html)** — detailed pipeline walkthrough, architecture diagrams, rating rubrics, and troubleshooting guide (open locally or via GitHub Pages)
+> 📖 **[Full Technical Documentation](https://htmlpreview.github.io/?https://github.com/treese41528/job-application-summarizer/blob/main/docs/DOCUMENTATION.html)** — detailed pipeline walkthrough, architecture diagrams, rating rubrics, and troubleshooting guide
 
 ---
 
