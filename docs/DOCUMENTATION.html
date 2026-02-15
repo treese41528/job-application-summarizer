@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Application Summarizer — Technical Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1b1b1b;
+  --paper: #faf9f6;
+  --accent: #8b2332;
+  --accent-soft: #8b233218;
+  --gold: #c28b00;
+  --gold-soft: #c28b0015;
+  --teal: #1a7a6d;
+  --teal-soft: #1a7a6d12;
+  --slate: #4a5568;
+  --slate-soft: #4a556810;
+  --code-bg: #1e1e2e;
+  --code-fg: #cdd6f4;
+  --code-comment: #6c7086;
+  --code-keyword: #cba6f7;
+  --code-string: #a6e3a1;
+  --code-func: #89b4fa;
+  --code-num: #fab387;
+  --code-decorator: #f9e2af;
+  --sidebar-w: 260px;
+  --serif: 'Playfair Display', Georgia, serif;
+  --sans: 'Source Sans 3', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --border: #d8d3ca;
+  --muted: #6b6560;
+  --star: #d4a017;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; font-size: 17px; }
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── SIDEBAR ─────────────────────────────────────── */
+nav.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: var(--sidebar-w); height: 100vh;
+  background: var(--ink);
+  color: #b8b5ad;
+  padding: 2rem 0;
+  overflow-y: auto;
+  z-index: 100;
+  border-right: 3px solid var(--accent);
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+nav.sidebar .logo {
+  padding: 0 1.4rem 1.4rem;
+  border-bottom: 1px solid #2a2a3e;
+  margin-bottom: 1rem;
+}
+
+nav.sidebar .logo h1 {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+nav.sidebar .logo span {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: block;
+  margin-top: 0.35rem;
+}
+
+nav.sidebar .nav-section {
+  padding: 0.7rem 1.4rem 0.2rem;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #555;
+  font-weight: 600;
+}
+
+nav.sidebar a {
+  display: block;
+  padding: 0.32rem 1.4rem;
+  color: #9a9690;
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+}
+
+nav.sidebar a:hover,
+nav.sidebar a.active {
+  color: #fff;
+  background: rgba(255,255,255,0.04);
+  border-left-color: var(--accent);
+}
+
+/* ─── MAIN ────────────────────────────────────────── */
+main {
+  margin-left: var(--sidebar-w);
+  max-width: 880px;
+  padding: 3rem 3.5rem 6rem;
+}
+
+/* ─── HERO ────────────────────────────────────────── */
+.hero {
+  padding: 2rem 0 2.5rem;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 3rem;
+}
+
+.hero h1 {
+  font-family: var(--serif);
+  font-size: 2.6rem;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.hero h1 em { color: var(--accent); font-style: italic; }
+
+.hero .subtitle {
+  font-size: 1.08rem;
+  color: var(--muted);
+  max-width: 40em;
+  line-height: 1.6;
+}
+
+.hero .meta {
+  display: flex;
+  gap: 1.3rem;
+  margin-top: 1.1rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.hero .meta .badge {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.hero .meta .badge.gold { background: var(--gold); color: #fff; }
+
+/* ─── SECTIONS ────────────────────────────────────── */
+section { margin-bottom: 3.2rem; }
+
+section > h2 {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  letter-spacing: -0.02em;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.1rem;
+}
+
+section > h3 {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  margin: 1.8rem 0 0.7rem;
+  color: var(--ink);
+}
+
+section > h4 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 1.3rem 0 0.4rem;
+}
+
+p { margin-bottom: 0.9rem; max-width: 62ch; }
+
+/* ─── CODE ────────────────────────────────────────── */
+pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 1.2rem 1.4rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  margin: 0.8rem 0 1.3rem;
+  position: relative;
+  border: 1px solid #2a2a40;
+}
+
+pre .label {
+  position: absolute;
+  top: 0; right: 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.56rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 0 7px 0 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+code { font-family: var(--mono); font-size: 0.85em; }
+
+p code, li code, td code {
+  background: #e8e4dc;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.82em;
+  color: var(--accent);
+}
+
+.kw { color: var(--code-keyword); }
+.s { color: var(--code-string); }
+.fn { color: var(--code-func); }
+.cm { color: var(--code-comment); font-style: italic; }
+.n { color: var(--code-num); }
+
+/* ─── CALLOUTS ────────────────────────────────────── */
+.callout {
+  padding: 1rem 1.2rem;
+  border-radius: 6px;
+  margin: 1rem 0 1.3rem;
+  border-left: 4px solid;
+  font-size: 0.9rem;
+}
+.callout p:last-child { margin-bottom: 0; }
+.callout.info { background: #eaf4fb; border-color: #2980b9; }
+.callout.warn { background: #fef9e7; border-color: var(--gold); }
+.callout.danger { background: #fdedec; border-color: var(--accent); }
+.callout.tip { background: var(--teal-soft); border-color: var(--teal); }
+.callout .callout-title {
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+/* ─── TABLES ──────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0 1.3rem;
+  font-size: 0.86rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:hover td { background: rgba(0,0,0,0.015); }
+
+/* ─── PIPELINE FLOW ───────────────────────────────── */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 1.3rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.pipeline .step {
+  padding: 0.4rem 0.75rem;
+  border-radius: 5px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.pipeline .step.extract { background: #dbeafe; color: #1e40af; }
+.pipeline .step.categorize { background: #fef3c7; color: #92400e; }
+.pipeline .step.rag { background: var(--accent-soft); color: var(--accent); border: 1px dashed var(--accent); }
+.pipeline .step.profile { background: #d1fae5; color: #065f46; }
+.pipeline .step.evaluate { background: #ede9fe; color: #5b21b6; }
+.pipeline .step.rank { background: var(--gold-soft); color: #92400e; border: 1px solid var(--gold); }
+.pipeline .connector { color: var(--muted); font-size: 1.1rem; }
+
+/* ─── ARCHITECTURE DIAGRAM ────────────────────────── */
+.arch-diagram {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1.2rem 0;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  overflow-x: auto;
+}
+
+.arch-diagram .layer {
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.arch-diagram .layer.source { border-color: #6366f1; background: #eef2ff; }
+.arch-diagram .layer.llm { border-color: var(--accent); background: var(--accent-soft); }
+.arch-diagram .layer.rag { border-color: var(--gold); background: var(--gold-soft); }
+.arch-diagram .layer.output { border-color: var(--teal); background: var(--teal-soft); }
+.arch-diagram .layer.viewer { border-color: var(--slate); background: var(--slate-soft); }
+
+.arch-diagram .layer-label {
+  font-weight: 700;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.2rem;
+}
+
+.arch-diagram .arrow {
+  text-align: center;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+/* ─── STAR RATINGS ────────────────────────────────── */
+.stars { color: var(--star); letter-spacing: 0.05em; }
+
+/* ─── MODE BADGES ─────────────────────────────────── */
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.mode-card {
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem;
+  transition: border-color 0.2s;
+}
+
+.mode-card:hover { border-color: var(--accent); }
+
+.mode-card h4 {
+  font-family: var(--serif);
+  font-size: 1rem;
+  margin: 0 0 0.3rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.mode-card .tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mode-card .tag.default { background: var(--teal-soft); color: var(--teal); }
+.mode-card .tag.opt-in { background: var(--gold-soft); color: #92400e; }
+.mode-card .tag.flag { background: #e8e4dc; color: var(--muted); }
+
+.mode-card p { font-size: 0.85rem; margin: 0; }
+
+/* ─── LISTS ───────────────────────────────────────── */
+ul, ol { margin: 0.4rem 0 1rem 1.4rem; }
+li { margin-bottom: 0.25rem; }
+
+/* ─── TREE DIAGRAM ────────────────────────────────── */
+.tree {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.9;
+  margin: 0.8rem 0;
+  padding-left: 0.8rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+}
+.tree .dir { font-weight: 600; color: var(--ink); }
+.tree .file { color: var(--muted); }
+.tree .desc { color: var(--code-comment); font-style: italic; font-size: 0.72rem; }
+
+/* ─── YAML PREVIEW ────────────────────────────────── */
+.yaml-preview {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin: 0.8rem 0 1.3rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.yaml-preview .yaml-key { color: var(--accent); font-weight: 600; }
+.yaml-preview .yaml-val { color: var(--teal); }
+.yaml-preview .yaml-comment { color: var(--code-comment); font-style: italic; }
+
+/* ─── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 960px) {
+  nav.sidebar { display: none; }
+  main { margin-left: 0; padding: 2rem 1.3rem 4rem; }
+  .mode-grid { grid-template-columns: 1fr; }
+}
+
+section[id] { scroll-margin-top: 1rem; }
+
+@media print {
+  nav.sidebar { display: none; }
+  main { margin-left: 0; max-width: 100%; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav class="sidebar">
+  <div class="logo">
+    <h1>Job Application Summarizer</h1>
+    <span>Purdue Statistics • Faculty Search</span>
+  </div>
+
+  <div class="nav-section">Getting Started</div>
+  <a href="#overview">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#quickstart">Quick Start</a>
+
+  <div class="nav-section">Pipeline</div>
+  <a href="#pipeline">Processing Pipeline</a>
+  <a href="#extraction">Document Extraction</a>
+  <a href="#categorization">Categorization</a>
+  <a href="#profiling">Profile Building</a>
+  <a href="#evaluation">Evaluation</a>
+  <a href="#ranking">Comparative Ranking</a>
+
+  <div class="nav-section">Evaluation Modes</div>
+  <a href="#modes">Mode Overview</a>
+  <a href="#mode-classic">Classic Mode</a>
+  <a href="#mode-rag">RAG Mode</a>
+  <a href="#mode-ensemble">Ensemble Mode</a>
+
+  <div class="nav-section">Position Profiles</div>
+  <a href="#positions">YAML Profiles</a>
+
+  <div class="nav-section">Viewer &amp; Review</div>
+  <a href="#viewer">Web Viewer</a>
+  <a href="#chat">Chat Interface</a>
+  <a href="#human-review">Human Review</a>
+
+  <div class="nav-section">Reference</div>
+  <a href="#cli">CLI Reference</a>
+  <a href="#config">Configuration</a>
+  <a href="#output-files">Output Files</a>
+  <a href="#rubrics">Rating Rubrics</a>
+  <a href="#deps">Dependencies</a>
+  <a href="#cleanup">KB Cleanup</a>
+  <a href="#troubleshooting">Troubleshooting</a>
+</nav>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main>
+
+<!-- ─── HERO ─── -->
+<header class="hero">
+  <h1>Job Application <em>Summarizer</em></h1>
+  <p class="subtitle">
+    An LLM-powered pipeline that processes faculty job applications — extracting, categorizing, profiling, and evaluating applicants using Purdue GenAI Studio — then presents results in a local web viewer with comparative rankings and a chat interface. Configurable for any academic position type via YAML profiles.
+  </p>
+  <div class="meta">
+    <span class="badge">Faculty Search Tool</span>
+    <span class="badge gold">Position-Configurable</span>
+    <span>Author: Timothy Reese</span>
+    <span>Purdue Statistics</span>
+    <span>Python 3.10+</span>
+  </div>
+</header>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- OVERVIEW -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="overview">
+  <h2>Overview</h2>
+  <p>
+    This tool automates the initial screening of faculty job applications. It takes a directory of applicant folders — each containing PDFs and DOCXs (CV, cover letter, teaching statement, research statement, recommendation letters) — and produces structured evaluations with star ratings, red flag analysis, and ranked comparisons.
+  </p>
+  <p>
+    The default configuration targets a <strong>Visiting Assistant Professor (Teaching Focus, 2-year)</strong> position in the Department of Statistics at Purdue University, but position-specific settings (rubrics, red flags, weighting, department) can be swapped via <code>--position</code> YAML profiles for tenure-track, research-focused, lecturer, or other searches.
+  </p>
+  <p>
+    The evaluations are <em>assistive, not authoritative</em>. They're designed to help a hiring committee quickly identify strong candidates, surface potential concerns, and organize the applicant pool — not to replace human judgment. A built-in human review overlay lets committee members correct, override, and annotate any LLM-generated output.
+  </p>
+
+  <h3>What It Produces</h3>
+  <ul>
+    <li><strong>Structured profiles</strong> — name, degree, institution, courses taught, technologies, research areas</li>
+    <li><strong>Star ratings</strong> — teaching (1–5<span class="stars">★</span>), research (1–5<span class="stars">★</span>), fit (1–5<span class="stars">★</span>)</li>
+    <li><strong>Red flag analysis</strong> — severity-tagged concerns (Minor, Moderate, Serious)</li>
+    <li><strong>Letter summaries</strong> — individual summaries of each recommendation letter</li>
+    <li><strong>Executive summaries</strong> — one-paragraph overall assessment per applicant</li>
+    <li><strong>Comparative rankings</strong> — curve-adjusted scores and tier assignments across the pool</li>
+    <li><strong>Exportable CSV</strong> — all data in one spreadsheet for committee review</li>
+  </ul>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <h2>Architecture</h2>
+
+  <div class="arch-diagram">
+    <div class="layer source">
+      <div class="layer-label">Applicant Folders (Input)</div>
+      PDF/DOCX files organized by applicant: <code>{search-dir}/{Name}/</code><br>
+      CVs • Cover Letters • Teaching Statements • Research Statements • Recommendation Letters
+    </div>
+    <div class="arrow">▼ pdfplumber / pypdf / pandoc / python-docx</div>
+    <div class="layer llm">
+      <div class="layer-label">Processing Pipeline (run.py + --position YAML)</div>
+      Extract → Categorize → Profile → Evaluate → Rank<br>
+      All LLM calls via <code>LLMClient</code> → <code>genai_studio.py</code> → Purdue GenAI Studio API<br>
+      Position-aware prompts injected from YAML config (rubrics, red flags, weights)
+    </div>
+    <div class="arrow">▼ Optional: upload &amp; index documents</div>
+    <div class="layer rag">
+      <div class="layer-label">RAG Pipeline (Optional)</div>
+      Per-applicant knowledge bases on GenAI Studio<br>
+      Full document retrieval instead of text truncation • Enables chat interface
+    </div>
+    <div class="arrow">▼ JSON results</div>
+    <div class="layer output">
+      <div class="layer-label">Results (data/results/)</div>
+      <code>profile.json</code> • <code>evaluation.json</code> • <code>comparative.json</code> • <code>human_review.json</code><br>
+      Per-applicant JSON files — no raw document text stored
+    </div>
+    <div class="arrow">▼ Flask (local only)</div>
+    <div class="layer viewer">
+      <div class="layer-label">Web Viewer (http://127.0.0.1:5000)</div>
+      Dashboard grid • Applicant detail pages • Human review overlay • RAG chat panel
+    </div>
+  </div>
+
+  <h3>Project Structure</h3>
+  <div class="tree">
+    <span class="dir">job-application-summarizer/</span><br>
+    ├── <span class="dir">run.py</span> <span class="desc">— CLI orchestrator (process, rank, serve, status, export, cleanup-kbs)</span><br>
+    ├── <span class="dir">genai_studio.py</span> <span class="desc">— Purdue GenAI Studio SDK (copy here, not committed)</span><br>
+    ├── <span class="dir">cleanup_rag.py</span> <span class="desc">— Standalone KB teardown with 3-layer safety</span><br>
+    ├── <span class="file">requirements.txt</span><br>
+    ├── <span class="dir">positions/</span> <span class="desc">— Position profile YAML files</span><br>
+    │   ├── <span class="file">vap-teaching-2025.yaml</span> <span class="desc">— VAP teaching-focused (matches defaults)</span><br>
+    │   └── <span class="file">tt-research-2026.yaml</span> <span class="desc">— Tenure-track research-focused example</span><br>
+    ├── <span class="dir">src/</span><br>
+    │   ├── <span class="file">config.py</span> <span class="desc">— Dataclasses, PositionWeights, load_position_yaml()</span><br>
+    │   ├── <span class="dir">llm/</span><br>
+    │   │   └── <span class="file">client.py</span> <span class="desc">— LLMClient: query, query_json, ensemble_query, synthesize</span><br>
+    │   ├── <span class="dir">rag/</span><br>
+    │   │   └── <span class="file">manager.py</span> <span class="desc">— ApplicantKBManager: upload, create KB, link files, cleanup</span><br>
+    │   ├── <span class="dir">models/</span><br>
+    │   │   ├── <span class="file">applicant.py</span> <span class="desc">— ApplicantProfile, CourseTaught dataclasses</span><br>
+    │   │   ├── <span class="file">document.py</span> <span class="desc">— Document, DocumentCategory</span><br>
+    │   │   └── <span class="file">evaluation.py</span> <span class="desc">— Evaluation, RedFlag, LetterSummary</span><br>
+    │   ├── <span class="dir">extraction/</span><br>
+    │   │   ├── <span class="file">pdf_extractor.py</span> <span class="desc">— pdfplumber → pypdf fallback chain</span><br>
+    │   │   ├── <span class="file">docx_extractor.py</span> <span class="desc">— pandoc → python-docx; .doc via LibreOffice</span><br>
+    │   │   └── <span class="file">text_cleaner.py</span> <span class="desc">— clean_text(), chunk_text()</span><br>
+    │   ├── <span class="dir">analysis/</span><br>
+    │   │   ├── <span class="file">categorizer.py</span> <span class="desc">— Filename hints + LLM classification</span><br>
+    │   │   ├── <span class="file">profile_builder.py</span> <span class="desc">— Structured extraction from CV + cover letter</span><br>
+    │   │   ├── <span class="file">evaluator.py</span> <span class="desc">— Teaching/research/fit evaluation engine</span><br>
+    │   │   ├── <span class="file">prompts.py</span> <span class="desc">— Prompt templates with __MARKER__ injection + build_*() builders</span><br>
+    │   │   └── <span class="file">comparative.py</span> <span class="desc">— Cross-pool ranking with curved scores + ensemble ranking</span><br>
+    │   └── <span class="dir">viewer/</span><br>
+    │       ├── <span class="file">app.py</span> <span class="desc">— Flask app (dashboard, detail, API, position-aware chat)</span><br>
+    │       ├── <span class="dir">templates/</span> <span class="desc">— dashboard.html, applicant.html, base.html</span><br>
+    │       └── <span class="dir">static/</span> <span class="desc">— styles.css, app.js</span><br>
+    ├── <span class="dir">data/results/</span> <span class="desc">— Generated JSON output per applicant</span><br>
+    └── <span class="dir">tests/</span>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- QUICK START -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="quickstart">
+  <h2>Quick Start</h2>
+
+  <pre><span class="label">bash</span>
+<span class="cm"># 1. Install dependencies</span>
+pip install -r requirements.txt
+
+<span class="cm"># 2. Set your GenAI Studio API key</span>
+<span class="kw">export</span> GENAI_STUDIO_API_KEY=<span class="s">"sk-your-key-here"</span>
+
+<span class="cm"># 3. Copy the GenAI Studio SDK (v1.2+ with RAG support)</span>
+cp /path/to/genai_studio.py .
+
+<span class="cm"># 4. Verify the SDK</span>
+python -c <span class="s">"from genai_studio import GenAIStudio, FileInfo, KnowledgeBase; print('OK')"</span>
+
+<span class="cm"># 5. Process all applicants (default: VAP teaching config)</span>
+python run.py process ../vap-search-2025/
+
+<span class="cm"># 6. Launch the viewer</span>
+python run.py serve --applicants-dir ../vap-search-2025/
+<span class="cm"># → http://127.0.0.1:5000</span></pre>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Fast first pass</div>
+    <p>For a quick overview without waiting for RAG indexing or large models, try:<br>
+    <code>python run.py process ../vap-search-2025/ --model gemma3:12b --no-rag --no-ensemble</code></p>
+  </div>
+
+  <h3>Different Position Type</h3>
+  <pre><span class="label">bash</span>
+<span class="cm"># Tenure-track research-focused search</span>
+python run.py process ../tt-search-2026/ --position positions/tt-research-2026.yaml
+
+<span class="cm"># Re-rank with ensemble consensus</span>
+python run.py rank --ensemble --position positions/tt-research-2026.yaml
+
+<span class="cm"># Serve with position context for chat</span>
+python run.py serve --applicants-dir ../tt-search-2026/ --position positions/tt-research-2026.yaml</pre>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PIPELINE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="pipeline">
+  <h2>Processing Pipeline</h2>
+
+  <div class="pipeline">
+    <div class="step extract">① Extract</div>
+    <div class="connector">→</div>
+    <div class="step categorize">② Categorize</div>
+    <div class="connector">→</div>
+    <div class="step rag">③ RAG Index</div>
+    <div class="connector">→</div>
+    <div class="step profile">④ Profile</div>
+    <div class="connector">→</div>
+    <div class="step evaluate">⑤ Evaluate</div>
+    <div class="connector">→</div>
+    <div class="step rank">⑥ Rank</div>
+  </div>
+
+  <p>Each stage feeds the next. RAG indexing (step 3) is optional — when disabled, evaluation prompts include truncated text directly. Ranking (step 6) runs automatically after all applicants are processed. Steps 5 and 6 use position-aware prompts — rubrics, red flags, and primary/secondary weights are injected from the <code>--position</code> YAML profile (or defaults).</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- EXTRACTION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="extraction">
+  <h2>Document Extraction</h2>
+  <p>The extraction stage converts raw files into plain text for downstream processing.</p>
+
+  <table>
+    <tr><th>Format</th><th>Primary Extractor</th><th>Fallback</th></tr>
+    <tr><td><code>.pdf</code></td><td>pdfplumber</td><td>pypdf</td></tr>
+    <tr><td><code>.docx</code></td><td>pandoc (if installed)</td><td>python-docx</td></tr>
+    <tr><td><code>.doc</code></td><td>LibreOffice → DOCX → python-docx</td><td>—</td></tr>
+    <tr><td><code>.txt</code>, <code>.rtf</code></td><td>Direct read</td><td>—</td></tr>
+  </table>
+
+  <p>After extraction, text is cleaned (whitespace normalized, encoding artifacts removed) and optionally chunked for documents exceeding <code>max_tokens_per_chunk</code> (default 4000 characters).</p>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ Scanned PDFs</div>
+    <p>Image-only PDFs with no extractable text layer will produce empty results. Pre-process with OCR if needed. The pipeline reports these as "No text could be extracted."</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CATEGORIZATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="categorization">
+  <h2>Categorization</h2>
+  <p>Each document is classified into one of six categories:</p>
+  <table>
+    <tr><th>Category</th><th>Matched By</th></tr>
+    <tr><td><code>cv</code></td><td>Filename contains "cv", "curriculum", "vitae", "resume"</td></tr>
+    <tr><td><code>cover_letter</code></td><td>Filename contains "cover", "letter" (+ "application")</td></tr>
+    <tr><td><code>teaching_statement</code></td><td>Filename contains "teaching"</td></tr>
+    <tr><td><code>research_statement</code></td><td>Filename contains "research"</td></tr>
+    <tr><td><code>recommendation_letter</code></td><td>Filename contains "rec", "reference", "letter" (not "cover")</td></tr>
+    <tr><td><code>other</code></td><td>LLM classification on first 3000 chars of text</td></tr>
+  </table>
+
+  <p>Filename-matched documents skip the LLM call entirely. Only ambiguous files are sent to the classification model, keeping API usage minimal.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PROFILING -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="profiling">
+  <h2>Profile Building</h2>
+  <p>The profile builder extracts structured data from the CV (primary source) and supplements from the cover letter. The LLM returns JSON with these fields:</p>
+
+  <table>
+    <tr><th>Field</th><th>Source</th><th>Example</th></tr>
+    <tr><td><code>name</code></td><td>CV</td><td>"Jane Smith"</td></tr>
+    <tr><td><code>terminal_degree</code></td><td>CV</td><td>"Ph.D."</td></tr>
+    <tr><td><code>degree_field</code></td><td>CV</td><td>"Statistics"</td></tr>
+    <tr><td><code>degree_institution</code></td><td>CV</td><td>"University of Michigan"</td></tr>
+    <tr><td><code>degree_year</code></td><td>CV</td><td>"2023"</td></tr>
+    <tr><td><code>degree_status</code></td><td>CV</td><td>"Completed" or "ABD"</td></tr>
+    <tr><td><code>current_position</code></td><td>CV</td><td>"Postdoctoral Researcher"</td></tr>
+    <tr><td><code>courses_taught</code></td><td>CV</td><td>List of CourseTaught objects</td></tr>
+    <tr><td><code>teaching_technologies</code></td><td>CV + Teaching Statement</td><td>["R", "Python", "Canvas"]</td></tr>
+    <tr><td><code>ai_in_education</code></td><td>Teaching Statement</td><td>true/false</td></tr>
+    <tr><td><code>research_areas</code></td><td>CV + Research Statement</td><td>["Bayesian methods", "Spatial statistics"]</td></tr>
+    <tr><td><code>is_statistics_adjacent</code></td><td>Computed</td><td>true (checked against configured adjacent fields list)</td></tr>
+  </table>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- EVALUATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="evaluation">
+  <h2>Evaluation</h2>
+  <p>The evaluation stage produces the core output: star ratings, justifications, red flags, letter summaries, and an overall recommendation. All prompts are position-aware — rubrics, red flags, and emphasis (primary/secondary dimension) are injected from the <code>--position</code> YAML config.</p>
+
+  <h3>Evaluation Steps</h3>
+  <p>Three independent LLM calls, each returning structured JSON:</p>
+  <ol>
+    <li><strong>Teaching evaluation</strong> — star rating (1–5), justification, strengths, weaknesses, course count</li>
+    <li><strong>Research evaluation</strong> — star rating (1–5), justification, publication assessment, research direction</li>
+    <li><strong>Fit &amp; flags</strong> — fit score (1–5), red flags with severity, overall recommendation, executive summary</li>
+  </ol>
+  <p>Recommendation letters are summarized individually with tone, key quotes, and strength indicators.</p>
+
+  <h3>How Prompts Are Selected</h3>
+  <table>
+    <tr><th>Mode</th><th>Prompt Builder</th><th>Document Access</th></tr>
+    <tr><td>Classic</td><td><code>build_evaluate_teaching(config)</code></td><td>Truncated text in prompt (3000–4000 chars)</td></tr>
+    <tr><td>RAG</td><td><code>build_rag_evaluate_teaching(config)</code></td><td>Full docs via <code>collections=[kb_id]</code></td></tr>
+    <tr><td>Ensemble + synthesis</td><td><code>build_synthesize_teaching(config)</code></td><td>Per-model results merged by synthesizer</td></tr>
+  </table>
+  <p>When <code>config</code> is provided (via <code>--position</code>), prompts are built dynamically with position-specific rubrics and red flags. Without it, backward-compatible constants with VAP teaching defaults are used.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- RANKING -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="ranking">
+  <h2>Comparative Ranking</h2>
+  <p>After all applicants are individually evaluated, a post-processing stage compares them against each other. The LLM receives a compact comparison table and assigns:</p>
+  <ul>
+    <li><strong>Curve-adjusted teaching and research scores</strong> — re-calibrated relative to the pool</li>
+    <li><strong>Tier</strong> — Top 🏆, Strong 🟢, Middle 🟡, Below Average 🟠, Weak 🔴</li>
+    <li><strong>Rank</strong> — numeric position ordered by the primary dimension (from config) then secondary</li>
+    <li><strong>Comparative notes</strong> — why this candidate lands where they do relative to peers</li>
+  </ul>
+
+  <p>Pool statistics are computed: average teaching/research scores, tier distribution counts. For large pools (>20), ranking is done in batches with a merge pass to ensure all candidates are fairly placed.</p>
+
+  <h3>Ensemble Ranking</h3>
+  <p>The ranking step also supports ensemble mode via <code>--ensemble</code>. The same comparison table is sent to each ensemble model independently, and the synthesizer merges the individual rankings into one consensus using median curved scores, majority-rule tiers, and re-assigned ranks. Individual model outputs are saved in <code>comparative_ensemble.json</code>.</p>
+
+  <pre><span class="label">bash</span>
+python run.py rank --ensemble
+python run.py rank --ensemble --position positions/vap-teaching-2025.yaml</pre>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ Re-ranking</div>
+    <p>You can re-run ranking independently with <code>python run.py rank</code> — for example, after adding human review corrections or reprocessing specific applicants. Use <code>--model</code> to try a different ranking model, <code>--ensemble</code> for multi-model consensus, or <code>--position</code> for different position weighting.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- MODES OVERVIEW -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="modes">
+  <h2>Evaluation Modes</h2>
+  <p>Three combinable modes control how evaluation prompts are constructed and executed.</p>
+
+  <div class="mode-grid">
+    <div class="mode-card">
+      <h4>Classic</h4>
+      <div class="tag flag">--no-rag --no-ensemble</div>
+      <p>Text truncated and stuffed into prompts. Single model. Fast, simple, no server-side resources.</p>
+    </div>
+    <div class="mode-card">
+      <h4>RAG</h4>
+      <div class="tag default">Default (on)</div>
+      <p>Full document retrieval via per-applicant knowledge bases. No truncation. Enables chat interface.</p>
+    </div>
+    <div class="mode-card">
+      <h4>Ensemble</h4>
+      <div class="tag opt-in">Opt-in (config.py)</div>
+      <p>4 models evaluate independently, synthesizer merges. Reduces bias, per-model breakdowns saved.</p>
+    </div>
+  </div>
+
+  <p>All three modes use position-aware prompts — rubrics, red flags, and primary/secondary weighting are injected from <code>--position</code> YAML or the default config.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CLASSIC MODE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="mode-classic">
+  <h3>Classic Mode</h3>
+  <p>The original approach. Each evaluation prompt includes the relevant document text directly, truncated to 3000–4000 characters per document to fit within context limits. No server-side resources are created.</p>
+
+  <pre><span class="label">bash</span>
+python run.py process ../vap-search-2025/ --no-rag --no-ensemble --model gemma3:12b</pre>
+
+  <p>Best for: quick first passes, testing prompt changes, environments without reliable GenAI Studio connectivity, or when processing time is critical.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- RAG MODE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="mode-rag">
+  <h3>RAG Mode</h3>
+  <p>Each applicant's documents are uploaded to GenAI Studio and indexed into a per-applicant knowledge base. Evaluation prompts reference the KB via <code>collections=[kb_id]</code>, letting the LLM retrieve relevant passages from full documents.</p>
+
+  <h4>RAG Lifecycle</h4>
+  <div class="pipeline">
+    <div class="step extract">Upload Files</div>
+    <div class="connector">→</div>
+    <div class="step categorize">Create KB</div>
+    <div class="connector">→</div>
+    <div class="step rag">Link Files</div>
+    <div class="connector">→</div>
+    <div class="step profile">Wait (12s)</div>
+    <div class="connector">→</div>
+    <div class="step evaluate">Query with KB</div>
+  </div>
+
+  <p>KB metadata is saved in <code>rag_metadata.json</code> so subsequent runs reuse existing KBs instead of recreating them. Use <code>--force-recreate-kbs</code> to override.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">⚠ Indexing delay</div>
+    <p>After linking files to a KB, the server needs time (default 12s) to chunk, embed, and index. Querying too early produces generic non-grounded responses. Increase <code>RAGConfig.index_wait_seconds</code> for large PDFs.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ENSEMBLE MODE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="mode-ensemble">
+  <h3>Ensemble Mode</h3>
+  <p>Each evaluation step runs independently across multiple models. A synthesis model then reads all outputs and produces a single authoritative assessment.</p>
+
+  <table>
+    <tr><th>Role</th><th>Default Model(s)</th><th>Temperature</th></tr>
+    <tr><td>Member 1</td><td><code>llama3.3:70b</code></td><td>0.2</td></tr>
+    <tr><td>Member 2</td><td><code>llama4:latest</code></td><td>0.2</td></tr>
+    <tr><td>Member 3</td><td><code>qwen2.5:72b</code></td><td>0.2</td></tr>
+    <tr><td>Member 4</td><td><code>gemma3:27b</code></td><td>0.2</td></tr>
+    <tr><td>Synthesizer</td><td><code>deepseek-r1:70b</code></td><td>0.1</td></tr>
+  </table>
+
+  <p>The synthesizer weighs evidence quality rather than simply averaging ratings. If one model identifies a concern supported by specific evidence while others miss it, the synthesizer elevates that finding. Per-model breakdowns are saved in <code>evaluation_ensemble.json</code> for full transparency.</p>
+
+  <p>Ensemble mode applies to both <strong>per-applicant evaluation</strong> (enable in <code>config.py</code>) and <strong>comparative ranking</strong> (use <code>--ensemble</code> on the <code>rank</code> command). Ranking ensemble outputs are saved in <code>comparative_ensemble.json</code>.</p>
+
+  <p>Enable evaluation ensemble in <code>src/config.py</code>:</p>
+  <pre><span class="label">Python</span>
+<span class="kw">class</span> <span class="fn">EnsembleConfig</span>:
+    enabled: <span class="kw">bool</span> = <span class="kw">True</span></pre>
+
+  <div class="callout warn">
+    <div class="callout-title">⚠ Processing time</div>
+    <p>Ensemble mode runs 4× more LLM calls per evaluation step, plus synthesis. For a pool of 40 applicants, expect several hours of processing time with 70B models. Partial failures are handled gracefully — if one model times out, remaining models still contribute.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- POSITION PROFILES -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="positions">
+  <h2>Position Profiles</h2>
+  <p>Instead of editing Python code to change position details, create a YAML file that defines everything position-specific. The <code>--position</code> flag is available on <code>process</code>, <code>rank</code>, and <code>serve</code> commands.</p>
+
+  <h3>YAML Format</h3>
+  <div class="yaml-preview">
+    <span class="yaml-key">position:</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">title:</span> <span class="yaml-val">"Assistant Professor"</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">focus:</span> <span class="yaml-val">"Research (Primary)"</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">duration:</span> <span class="yaml-val">"Tenure-track"</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">department:</span> <span class="yaml-val">"Department of Statistics"</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">university:</span> <span class="yaml-val">"Purdue University"</span><br>
+    <br>
+    <span class="yaml-key">weights:</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">primary:</span> <span class="yaml-val">research</span> &nbsp;<span class="yaml-comment"># "teaching" or "research"</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">secondary:</span> <span class="yaml-val">teaching</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">primary_weight:</span> <span class="yaml-val">2.0</span> &nbsp;<span class="yaml-comment"># multiplier for combined tier scoring</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">secondary_weight:</span> <span class="yaml-val">1.0</span><br>
+    <br>
+    <span class="yaml-key">rubric:</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">teaching:</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">5:</span> <span class="yaml-val">"Description of 5-star teaching..."</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">4:</span> <span class="yaml-val">"..."</span> &nbsp;<span class="yaml-comment"># down to 1</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">research:</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="yaml-key">5:</span> <span class="yaml-val">"Description of 5-star research..."</span><br>
+    <br>
+    <span class="yaml-key">red_flags:</span><br>
+    &nbsp;&nbsp;<span class="yaml-key">checks:</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;- <span class="yaml-val">"Degree not in Statistics or adjacent field"</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;- <span class="yaml-val">"ABD with no defense timeline"</span><br>
+    <br>
+    <span class="yaml-key">adjacent_fields:</span><br>
+    &nbsp;&nbsp;- <span class="yaml-val">Statistics</span><br>
+    &nbsp;&nbsp;- <span class="yaml-val">Biostatistics</span><br>
+    &nbsp;&nbsp;- <span class="yaml-val">Data Science</span>
+  </div>
+
+  <h3>Included Profiles</h3>
+  <table>
+    <tr><th>File</th><th>Position</th><th>Primary</th><th>Secondary</th></tr>
+    <tr><td><code>positions/vap-teaching-2025.yaml</code></td><td>Visiting Asst Professor</td><td>Teaching</td><td>Research</td></tr>
+    <tr><td><code>positions/tt-research-2026.yaml</code></td><td>Asst Professor (Tenure-Track)</td><td>Research</td><td>Teaching</td></tr>
+  </table>
+
+  <h3>What the Profile Controls</h3>
+  <table>
+    <tr><th>Aspect</th><th>What Changes</th></tr>
+    <tr><td>Prompt text</td><td>Position title, department, university injected into all evaluation prompts</td></tr>
+    <tr><td>Rating rubrics</td><td>1–5 star criteria for both teaching and research</td></tr>
+    <tr><td>Red flag checklist</td><td>Which checks are performed during fit assessment</td></tr>
+    <tr><td>Ranking sort order</td><td>Primary dimension ranked first, weighted more heavily</td></tr>
+    <tr><td>Weight multiplier</td><td>Configurable ratio for combined tier scoring (default 2:1)</td></tr>
+    <tr><td>Chat system prompt</td><td>Viewer chat references the correct position context</td></tr>
+    <tr><td>Adjacent fields</td><td>Which degree fields are considered relevant</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Backward compatible</div>
+    <p>Without <code>--position</code>, everything works exactly as before — hardcoded defaults match the VAP teaching position at Purdue Statistics. The flag is entirely opt-in.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VIEWER -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="viewer">
+  <h2>Web Viewer</h2>
+  <p>The viewer runs locally only at <code>http://127.0.0.1:5000</code> and provides two main views.</p>
+
+  <h3>Dashboard</h3>
+  <p>A sortable grid of all applicants with columns for teaching stars, research stars, fit score, tier badge, red flag count, recommendation, and shortlist status. Click any row to open the detail page.</p>
+
+  <h3>Applicant Detail</h3>
+  <p>A comprehensive single-page view with: profile card, evaluation with justifications, red flags (severity-tagged), letter summaries, executive summary, ensemble breakdown (if used), comparative ranking, human review panel, and chat interface (if RAG KBs exist).</p>
+
+  <pre><span class="label">bash</span>
+<span class="cm"># Launch with full features</span>
+python run.py serve --applicants-dir ../vap-search-2025/ --port 5000
+
+<span class="cm"># With position context for chat</span>
+python run.py serve --applicants-dir ../vap-search-2025/ --position positions/vap-teaching-2025.yaml
+
+<span class="cm"># Viewer only (no chat, no LLM connection needed)</span>
+python run.py serve --no-chat
+
+<span class="cm"># Custom model for chat</span>
+python run.py serve --applicants-dir ../vap-search-2025/ --model gemma3:12b</pre>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAT -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="chat">
+  <h2>Chat Interface</h2>
+  <p>When RAG knowledge bases are available, each applicant's detail page includes a floating chat panel. It queries the applicant's KB with a position-aware system prompt (using <code>--position</code> config if provided, or reading from <code>processing_meta.json</code>), so you can ask specific follow-up questions against their full application documents.</p>
+
+  <h4>Quick-Ask Buttons</h4>
+  <ul>
+    <li>"Summarize their teaching experience"</li>
+    <li>"What statistics courses have they taught?"</li>
+    <li>"What do their recommendation letters say?"</li>
+    <li>"Describe their research agenda"</li>
+  </ul>
+
+  <p>Chat requires: RAG processing was used (no <code>--no-rag</code>), <code>rag_metadata.json</code> exists for the applicant, viewer launched with LLM client (no <code>--no-chat</code>), and <code>GENAI_STUDIO_API_KEY</code> is set.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- HUMAN REVIEW -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="human-review">
+  <h2>Human Review Overlay</h2>
+  <p>The viewer includes a review panel on each applicant's detail page. Committee members can override any LLM-generated field, add comments, and toggle shortlist status. All overrides are saved in a separate <code>human_review.json</code> file — the original LLM outputs are <strong>never modified</strong>.</p>
+
+  <h4>Overridable Fields</h4>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Stored In</th></tr>
+    <tr><td>Teaching / Research / Fit ratings</td><td>Integer (1–5)</td><td><code>human_review.json</code></td></tr>
+    <tr><td>Overall recommendation</td><td>String</td><td><code>human_review.json</code></td></tr>
+    <tr><td>Profile corrections (name, degree, etc.)</td><td>Key-value overrides</td><td><code>human_review.json → profile_overrides</code></td></tr>
+    <tr><td>Shortlist status</td><td>Boolean</td><td><code>human_review.json</code></td></tr>
+    <tr><td>Committee comments / Teaching notes / Research notes</td><td>Free text</td><td><code>human_review.json</code></td></tr>
+    <tr><td>Reviewed flag</td><td>Boolean</td><td><code>human_review.json</code></td></tr>
+  </table>
+
+  <p>When the viewer renders a page, it merges <code>human_review.json</code> overrides on top of the LLM-generated <code>evaluation.json</code> and <code>profile.json</code> — the "effective" values are what you see. The CSV export includes both LLM and human columns for full audit trail.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CLI REFERENCE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="cli">
+  <h2>CLI Reference</h2>
+
+  <pre><span class="label">bash</span>
+python run.py [-v] &lt;command&gt; [options]</pre>
+
+  <h3>process</h3>
+  <pre><span class="label">bash</span>
+python run.py process &lt;applicants_dir&gt; [options]
+
+    --model MODEL              LLM model (default: config)
+    --results-dir DIR          Override results directory
+    --reprocess                Re-process even if results exist
+    --skip-rank                Skip comparative ranking
+    --no-rag                   Disable RAG mode
+    --no-ensemble              Disable ensemble mode
+    --force-recreate-kbs       Rebuild KBs from scratch
+    --position YAML            Position profile (default: VAP teaching)</pre>
+
+  <h3>rank</h3>
+  <pre><span class="label">bash</span>
+python run.py rank [options]
+
+    --model MODEL              LLM model
+    --results-dir DIR          Override results directory
+    --position YAML            Position profile
+    --ensemble                 Multi-model ensemble ranking</pre>
+
+  <h3>serve</h3>
+  <pre><span class="label">bash</span>
+python run.py serve [options]
+
+    --port PORT                Port (default: 5000)
+    --results-dir DIR          Results directory
+    --applicants-dir DIR       For document viewing
+    --model MODEL              Chat model
+    --no-chat                  Disable chat
+    --position YAML            Position profile (chat context)</pre>
+
+  <h3>status</h3>
+  <pre><span class="label">bash</span>
+python run.py status &lt;applicants_dir&gt; [--results-dir DIR]</pre>
+
+  <h3>export</h3>
+  <pre><span class="label">bash</span>
+python run.py export &lt;applicants_dir&gt; [--output FILE] [--results-dir DIR]</pre>
+
+  <h3>cleanup-kbs</h3>
+  <pre><span class="label">bash</span>
+python run.py cleanup-kbs [--results-dir DIR]</pre>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CONFIGURATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="config">
+  <h2>Configuration</h2>
+  <p>All settings live in <code>src/config.py</code> as Python dataclasses. Edit directly, or use <code>--position</code> YAML files for position-specific overrides.</p>
+
+  <table>
+    <tr><th>Dataclass</th><th>Key Fields</th></tr>
+    <tr><td><code>LLMConfig</code></td><td><code>classification_model</code>, <code>extraction_model</code>, <code>evaluation_model</code>, temperatures, token limits</td></tr>
+    <tr><td><code>EnsembleConfig</code></td><td><code>enabled</code>, <code>models[]</code>, <code>synthesizer_model</code>, <code>member_temperature</code>, <code>save_individual_results</code></td></tr>
+    <tr><td><code>RAGConfig</code></td><td><code>enabled</code>, <code>index_wait_seconds</code>, <code>upload_settle_seconds</code>, <code>keep_kbs_after_processing</code></td></tr>
+    <tr><td><code>PositionConfig</code></td><td><code>position_title</code>, <code>position_focus</code>, <code>department</code>, <code>university</code>, <code>statistics_adjacent_fields[]</code></td></tr>
+    <tr><td><code>PositionWeights</code></td><td><code>primary</code> (<code>"teaching"</code>/<code>"research"</code>), <code>secondary</code>, <code>primary_weight</code>, <code>secondary_weight</code></td></tr>
+    <tr><td><code>RatingRubric</code></td><td><code>teaching_rubric{1-5}</code>, <code>research_rubric{1-5}</code></td></tr>
+    <tr><td><code>RedFlagCriteria</code></td><td><code>checks[]</code>, <code>severity_levels[]</code></td></tr>
+    <tr><td><code>ViewerConfig</code></td><td><code>host</code>, <code>port</code>, <code>debug</code></td></tr>
+  </table>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Position YAML vs editing config.py</div>
+    <p>For position-specific settings (rubrics, red flags, weights, department), prefer a YAML profile — it's portable, versioned, and doesn't require code changes:<br>
+    <code>python run.py process ../search/ --position positions/tt-research-2026.yaml</code></p>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Using different models per stage</div>
+    <p>You can use a fast model for categorization and extraction, and a more powerful model for evaluation:<br>
+    Set <code>classification_model = "gemma3:12b"</code> and <code>evaluation_model = "llama3.3:70b"</code> in <code>LLMConfig</code>. The <code>--model</code> CLI flag overrides all three.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- OUTPUT FILES -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="output-files">
+  <h2>Output Files</h2>
+  <p>Per applicant, saved in <code>data/results/{folder_name}/</code>:</p>
+
+  <table>
+    <tr><th>File</th><th>Written By</th><th>Contents</th></tr>
+    <tr><td><code>profile.json</code></td><td>Pipeline</td><td>Structured applicant profile</td></tr>
+    <tr><td><code>evaluation.json</code></td><td>Pipeline</td><td>Final evaluation (synthesized if ensemble)</td></tr>
+    <tr><td><code>evaluation_ensemble.json</code></td><td>Pipeline</td><td>Per-model breakdowns (if ensemble enabled)</td></tr>
+    <tr><td><code>documents.json</code></td><td>Pipeline</td><td>Document metadata (no raw text)</td></tr>
+    <tr><td><code>processing_meta.json</code></td><td>Pipeline</td><td>RAG/ensemble flags, models used, position metadata, timestamp</td></tr>
+    <tr><td><code>rag_metadata.json</code></td><td>RAG manager</td><td>KB ID, file IDs, creation timestamp</td></tr>
+    <tr><td><code>comparative.json</code></td><td>Ranking</td><td>Curved scores, tier, rank, notes</td></tr>
+    <tr><td><code>comparative_ensemble.json</code></td><td>Ranking</td><td>Per-model ranking breakdowns (if ensemble ranking used)</td></tr>
+    <tr><td><code>human_review.json</code></td><td>Viewer</td><td>Committee overrides, comments, shortlist</td></tr>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ Privacy by design</div>
+    <p>Raw document text is <strong>never</strong> saved to disk. Only metadata (filenames, categories, page counts) is stored. Full text exists only in memory during processing.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- RUBRICS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="rubrics">
+  <h2>Rating Rubrics</h2>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ Configurable via YAML</div>
+    <p>The rubrics below are the <strong>defaults</strong> for the VAP teaching position. When using a <code>--position</code> YAML profile, these are replaced by the values defined in that profile's <code>rubric:</code> section.</p>
+  </div>
+
+  <h3>Teaching <span style="font-size: 0.8em; color: var(--muted);">(Primary — default)</span></h3>
+  <table>
+    <tr><th style="width: 80px;">Rating</th><th>Criteria</th></tr>
+    <tr><td><span class="stars">★★★★★</span></td><td>5+ courses as instructor, excellent evaluations, innovative pedagogy, AI/tech integration, statistics-specific courses, course development evidence</td></tr>
+    <tr><td><span class="stars">★★★★</span>☆</td><td>3–5 courses as instructor, clear teaching philosophy, some technology integration, positive evaluations</td></tr>
+    <tr><td><span class="stars">★★★</span>☆☆</td><td>1–3 courses or significant TA experience, standard teaching statement, basic technology use</td></tr>
+    <tr><td><span class="stars">★★</span>☆☆☆</td><td>TA only, generic teaching statement, no independent instruction evidence</td></tr>
+    <tr><td><span class="stars">★</span>☆☆☆☆</td><td>No teaching experience, no statement, or major concerns</td></tr>
+  </table>
+
+  <h3>Research <span style="font-size: 0.8em; color: var(--muted);">(Secondary — default)</span></h3>
+  <table>
+    <tr><th style="width: 80px;">Rating</th><th>Criteria</th></tr>
+    <tr><td><span class="stars">★★★★★</span></td><td>Active agenda, publications in statistics journals, collaboration potential, funded research</td></tr>
+    <tr><td><span class="stars">★★★★</span>☆</td><td>Some publications, clear direction, statistics-relevant area</td></tr>
+    <tr><td><span class="stars">★★★</span>☆☆</td><td>Dissertation research with potential, conference presentations</td></tr>
+    <tr><td><span class="stars">★★</span>☆☆☆</td><td>Minimal activity, few or no publications</td></tr>
+    <tr><td><span class="stars">★</span>☆☆☆☆</td><td>No research or non-statistics research with no clear connection</td></tr>
+  </table>
+
+  <h3>Red Flags <span style="font-size: 0.8em; color: var(--muted);">(default)</span></h3>
+  <table>
+    <tr><th>Severity</th><th>Examples</th></tr>
+    <tr><td><strong>Minor</strong></td><td>Generic cover letter, minor date inconsistencies</td></tr>
+    <tr><td><strong>Moderate</strong></td><td>ABD with unclear timeline, employment gaps, primarily research-focused</td></tr>
+    <tr><td><strong>Serious</strong></td><td>Degree not in adjacent field, no teaching experience, concerns raised in letters</td></tr>
+  </table>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- DEPENDENCIES -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="deps">
+  <h2>Dependencies</h2>
+
+  <h3>Required (pip)</h3>
+  <table>
+    <tr><th>Package</th><th>Purpose</th></tr>
+    <tr><td><code>openai</code></td><td>GenAI Studio API client (used by genai_studio.py)</td></tr>
+    <tr><td><code>httpx</code></td><td>HTTP client for RAG/model endpoints</td></tr>
+    <tr><td><code>PyYAML</code></td><td>Position profile YAML loading</td></tr>
+    <tr><td><code>click</code></td><td>CLI command framework</td></tr>
+    <tr><td><code>rich</code></td><td>Progress bars, tables, console output</td></tr>
+    <tr><td><code>flask</code></td><td>Web viewer</td></tr>
+    <tr><td><code>pdfplumber</code></td><td>Primary PDF text extraction</td></tr>
+    <tr><td><code>pypdf</code></td><td>Fallback PDF extraction</td></tr>
+    <tr><td><code>python-docx</code></td><td>DOCX text extraction</td></tr>
+  </table>
+
+  <h3>Optional (system)</h3>
+  <table>
+    <tr><th>Package</th><th>Purpose</th></tr>
+    <tr><td><code>pandoc</code></td><td>Better DOCX structure preservation</td></tr>
+    <tr><td><code>LibreOffice</code></td><td>Legacy <code>.doc</code> file conversion</td></tr>
+    <tr><td><code>numpy</code></td><td>Faster cosine similarity in genai_studio.py</td></tr>
+  </table>
+
+  <pre><span class="label">bash</span>
+pip install -r requirements.txt</pre>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ GenAI Studio SDK</div>
+    <p>The <code>genai_studio.py</code> file is not included — it's a separate Purdue-specific module. Copy the version with RAG support (v1.2+) into the project root. Verify with:<br>
+    <code>python -c "from genai_studio import GenAIStudio, FileInfo, KnowledgeBase, RAGError; print('OK')"</code></p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CLEANUP -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="cleanup">
+  <h2>KB Cleanup</h2>
+  <p>After the hiring process is complete, delete knowledge bases and uploaded files from GenAI Studio.</p>
+
+  <pre><span class="label">bash</span>
+<span class="cm"># Interactive with full safety prompts (recommended)</span>
+python cleanup_rag.py
+
+<span class="cm"># Preview only</span>
+python cleanup_rag.py --dry-run
+
+<span class="cm"># Keep uploaded files, delete only KBs</span>
+python cleanup_rag.py --keep-files
+
+<span class="cm"># Quick cleanup via run.py</span>
+python run.py cleanup-kbs</pre>
+
+  <p>The standalone <code>cleanup_rag.py</code> has three layers of safety confirmation:</p>
+  <ol>
+    <li>"Is the hiring process fully complete?" — yes/no</li>
+    <li>Type <code>DELETE ALL KBS</code> to confirm</li>
+    <li>3-second countdown before execution</li>
+  </ol>
+
+  <div class="callout danger">
+    <div class="callout-title">⚠ Irreversible</div>
+    <p>After cleanup, the chat interface will no longer work for any applicant. RAG-grounded re-evaluation will require full reprocessing. Local JSON results are <strong>not</strong> deleted.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TROUBLESHOOTING -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="troubleshooting">
+  <h2>Troubleshooting</h2>
+
+  <h3>504 Gateway Timeout during processing</h3>
+  <p>The server proxy kills slow requests after ~5 minutes. Typically happens with 70B models during categorization. Use a faster model for categorization (<code>classification_model = "gemma3:12b"</code>) or retry — cold-start timeouts often resolve on second attempt.</p>
+
+  <h3><code>'GenAIStudio' object has no attribute 'upload_file'</code></h3>
+  <p>You're using an older <code>genai_studio.py</code> without RAG methods. Copy the v1.2+ version with <code>upload_file</code>, <code>create_knowledge_base</code>, etc. Or use <code>--no-rag</code> to skip RAG.</p>
+
+  <h3><code>ModuleNotFoundError: No module named 'yaml'</code></h3>
+  <p>Install PyYAML: <code>pip install PyYAML</code> (or <code>pip install -r requirements.txt</code>). This is needed for <code>--position</code> YAML profile loading.</p>
+
+  <h3>RAG queries return generic (non-grounded) responses</h3>
+  <p>Indexing needs more time. Increase <code>RAGConfig.index_wait_seconds</code> from 12 to 20–30 seconds for large PDFs.</p>
+
+  <h3>"Skipping (already processed)"</h3>
+  <p>By default, <code>process</code> skips applicants with existing <code>evaluation.json</code>. Use <code>--reprocess</code> to force re-evaluation.</p>
+
+  <h3>Chat interface not appearing in viewer</h3>
+  <p>Requires: RAG processing used (no <code>--no-rag</code>), <code>rag_metadata.json</code> exists, viewer launched without <code>--no-chat</code>, and <code>GENAI_STUDIO_API_KEY</code> is set.</p>
+
+  <h3>Empty text from PDFs</h3>
+  <p>Scanned/image-only PDFs yield no text. Pre-process with OCR or skip that applicant.</p>
+
+  <h3>JSON parse errors from LLM</h3>
+  <p>The <code>LLMClient.query_json()</code> method handles common LLM JSON issues: strips <code>&lt;think&gt;</code> tags, extracts from code fences, fixes trailing commas. If parsing still fails, it retries with a reinforced prompt. Persistent failures usually indicate the model is too small for the task.</p>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Verbose logging</div>
+    <p>Use <code>python run.py -v process ...</code> for debug-level logging of every LLM call, prompt content, and response parsing.</p>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══════════════ SCROLL SPY ═══════════════ -->
+<script>
+(function() {
+  const links = document.querySelectorAll('nav.sidebar a[href^="#"]');
+  const sections = [];
+  links.forEach(a => {
+    const sec = document.querySelector(a.getAttribute('href'));
+    if (sec) sections.push({ el: sec, link: a });
+  });
+  function update() {
+    let current = sections[0];
+    for (const s of sections) {
+      if (s.el.getBoundingClientRect().top <= 120) current = s;
+    }
+    links.forEach(a => a.classList.remove('active'));
+    if (current) current.link.classList.add('active');
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  update();
+})();
+</script>
+
+</body>
+</html>

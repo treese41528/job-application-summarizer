@@ -1,0 +1,1212 @@
+{% extends "base.html" %}
+{% set p = data.profile %}
+{% set e = data.evaluation %}
+{% set r = data.review %}
+{% set ov = e.get('_overrides', {}) %}
+{% set pm = data.get('processing_meta', {}) %}
+{% set ens = data.get('ensemble_details', {}) %}
+{% set rag = data.get('rag_metadata', {}) %}
+
+{% block title %}{{ p.name }}{% endblock %}
+
+{% block nav_extra %}
+<span class="text-gray-600">·</span>
+<span class="text-gray-300">{{ p.name }}</span>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Chat toggle pulse animation */
+    @keyframes chat-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0.6); }
+        70% { box-shadow: 0 0 0 14px rgba(14, 116, 144, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0); }
+    }
+    .chat-pulse { animation: chat-pulse 2s ease-out infinite; }
+
+    /* Editable star widget */
+    .star-edit { display: inline-flex; gap: 2px; cursor: pointer; }
+    .star-edit .star { font-size: 1.3rem; transition: transform 0.1s; user-select: none; }
+    .star-edit .star:hover { transform: scale(1.2); }
+    .star-edit .star.filled { opacity: 1; }
+    .star-edit .star.empty { opacity: 0.3; }
+
+    /* Override indicator */
+    .override-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.65rem; padding: 1px 6px; border-radius: 9999px;
+        background: rgba(206, 184, 136, 0.15); color: #CEB888;
+        cursor: pointer; transition: background 0.15s;
+    }
+    .override-badge:hover { background: rgba(206, 184, 136, 0.3); }
+
+    /* Comment textarea styling */
+    .review-textarea {
+        background: #1e1e2e; border: 1px solid #313244; border-radius: 8px;
+        color: #cdd6f4; padding: 10px 12px; font-size: 0.875rem;
+        line-height: 1.5; width: 100%; resize: vertical; min-height: 60px;
+        transition: border-color 0.15s;
+    }
+    .review-textarea:focus { outline: none; border-color: #CEB888; }
+    .review-textarea::placeholder { color: #585b70; }
+
+    /* Save indicator */
+    .save-flash {
+        position: fixed; bottom: 24px; right: 24px; z-index: 100;
+        background: #1e1e2e; border: 1px solid #45475a; border-radius: 8px;
+        padding: 10px 16px; font-size: 0.85rem; color: #a6e3a1;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .save-flash.show { opacity: 1; }
+
+    /* Shortlist toggle */
+    .shortlist-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 14px; border-radius: 8px; font-size: 0.8rem;
+        border: 1px solid #45475a; cursor: pointer; transition: all 0.15s;
+        background: transparent; color: #9399b2;
+    }
+    .shortlist-btn.active {
+        background: rgba(166, 227, 161, 0.1); border-color: #a6e3a1; color: #a6e3a1;
+    }
+
+    /* Recommendation selector */
+    .rec-option {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 6px; font-size: 0.75rem;
+        border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+        opacity: 0.4;
+    }
+    .rec-option:hover { opacity: 0.7; }
+    .rec-option.selected { opacity: 1; border-color: currentColor; }
+
+    /* Editable text fields */
+    .editable-field {
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; padding: 2px 4px; border-radius: 4px;
+        transition: background 0.15s;
+    }
+    .editable-field:hover { background: rgba(206, 184, 136, 0.1); }
+    .editable-field .edit-icon { opacity: 0; font-size: 0.7rem; transition: opacity 0.15s; }
+    .editable-field:hover .edit-icon { opacity: 0.5; }
+
+    .edit-input {
+        background: #1e1e2e; border: 1px solid #CEB888; border-radius: 4px;
+        color: #cdd6f4; padding: 4px 8px; font-size: inherit;
+        outline: none; width: 100%;
+    }
+    .edit-input:focus { box-shadow: 0 0 0 2px rgba(206, 184, 136, 0.2); }
+
+    /* Toggle switches */
+    .toggle-switch {
+        position: relative; display: inline-flex; align-items: center;
+        cursor: pointer; gap: 8px;
+    }
+    .toggle-switch input { display: none; }
+    .toggle-slider {
+        width: 36px; height: 20px; background: #45475a; border-radius: 10px;
+        position: relative; transition: background 0.2s;
+    }
+    .toggle-slider::after {
+        content: ''; position: absolute; top: 2px; left: 2px;
+        width: 16px; height: 16px; background: #cdd6f4; border-radius: 50%;
+        transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #a6e3a1; }
+    .toggle-switch input:checked + .toggle-slider::after { transform: translateX(16px); }
+
+    /* Editable list */
+    .editable-list { margin-top: 4px; }
+    .editable-list-item {
+        display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    }
+    .editable-list-item input {
+        flex: 1; background: transparent; border: none; border-bottom: 1px solid #45475a;
+        color: #cdd6f4; padding: 2px 0; font-size: 0.875rem;
+    }
+    .editable-list-item input:focus { outline: none; border-color: #CEB888; }
+    .editable-list-item .remove-btn {
+        color: #f38ba8; cursor: pointer; opacity: 0.5; font-size: 0.8rem;
+    }
+    .editable-list-item .remove-btn:hover { opacity: 1; }
+    .add-item-btn {
+        color: #a6e3a1; cursor: pointer; font-size: 0.75rem; margin-top: 4px;
+        opacity: 0.7;
+    }
+    .add-item-btn:hover { opacity: 1; }
+
+    /* Section edit mode */
+    .section-edit-btn {
+        float: right; font-size: 0.7rem; color: #9399b2; cursor: pointer;
+        padding: 2px 8px; border: 1px solid #45475a; border-radius: 4px;
+    }
+    .section-edit-btn:hover { background: #45475a; }
+
+    /* Corrected field indicator */
+    .corrected { border-left: 2px solid #CEB888; padding-left: 6px; }
+
+    /* Ensemble details */
+    .ensemble-model-block {
+        border: 1px solid #313244; border-radius: 6px; padding: 10px;
+        margin-bottom: 8px; background: #1e1e2e;
+    }
+    .ensemble-model-block pre {
+        font-size: 0.7rem; line-height: 1.4; overflow-x: auto;
+        color: #a6adc8; white-space: pre-wrap; word-break: break-word;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Folder name for JS -->
+<div id="app-data" data-folder="{{ data.folder_name }}" class="hidden"></div>
+
+<!-- Back link -->
+<a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-purdue-gold transition-colors mb-4">
+    ← Back to Dashboard
+</a>
+
+<!-- ── Hero Card ── -->
+{% set pov = p.get('_profile_overrides', {}) %}
+<div class="bg-gray-900 border {{ e.overall_recommendation|rec_bg }} rounded-lg p-6 mb-6">
+    <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <h2 class="text-2xl font-bold text-gray-100 editable-field {{ 'corrected' if pov.get('name') }}"
+                    onclick="editTextField(this, 'name', '{{ p.name|replace("'", "\\'")|e }}')">
+                    {{ p.name }}
+                    <span class="edit-icon text-sm">✏️</span>
+                </h2>
+                <button id="shortlist-btn" class="shortlist-btn {{ 'active' if r.get('shortlist') }}"
+                        onclick="toggleShortlist()">
+                    {{ '★ Shortlisted' if r.get('shortlist') else '☆ Shortlist' }}
+                </button>
+            </div>
+            <p class="text-gray-400 mt-1">
+                {{ p.terminal_degree or 'Degree not specified' }}
+                {% if p.degree_institution %} · {{ p.degree_institution }}{% endif %}
+                {% if p.degree_year %} · {{ p.degree_year }}{% endif %}
+            </p>
+            {% if p.degree_status and p.degree_status != 'Completed' %}
+            <p class="text-yellow-400 text-sm mt-1">⏳ {{ p.degree_status }}</p>
+            {% endif %}
+            {% if p.current_position %}
+            <p class="text-gray-500 text-sm mt-1">Currently: {{ p.current_position }}{% if p.current_institution %}, {{ p.current_institution }}{% endif %}</p>
+            {% endif %}
+        </div>
+        <div class="text-right">
+            <span class="text-3xl">{{ e.overall_recommendation|rec_emoji }}</span>
+            <p class="text-sm font-medium {{ e.overall_recommendation|rec_color }} mt-1">{{ e.overall_recommendation }}</p>
+            {% if r.get('reviewed') %}
+            <p class="text-xs text-purdue-gold mt-1">✓ Reviewed</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Rating bar — editable -->
+    <div class="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-gray-800">
+        <div>
+            <span class="text-xs text-gray-500 uppercase tracking-wider">Teaching</span>
+            {% if ov.get('teaching_stars') %}
+            <span class="override-badge" onclick="resetField('teaching_stars')" title="Click to revert to LLM rating ({{ ov.teaching_stars.llm }}⭐)">
+                was {{ ov.teaching_stars.llm }}⭐ · reset
+            </span>
+            {% endif %}
+            <div class="star-edit" data-field="teaching_stars" data-value="{{ e.teaching_stars }}">
+                {% for i in range(1, 6) %}
+                <span class="star {{ 'filled' if i <= e.teaching_stars else 'empty' }}" data-n="{{ i }}">⭐</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <span class="text-xs text-gray-500 uppercase tracking-wider">Research</span>
+            {% if ov.get('research_stars') %}
+            <span class="override-badge" onclick="resetField('research_stars')" title="Click to revert to LLM rating ({{ ov.research_stars.llm }}⭐)">
+                was {{ ov.research_stars.llm }}⭐ · reset
+            </span>
+            {% endif %}
+            <div class="star-edit" data-field="research_stars" data-value="{{ e.research_stars }}">
+                {% for i in range(1, 6) %}
+                <span class="star {{ 'filled' if i <= e.research_stars else 'empty' }}" data-n="{{ i }}">⭐</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <span class="text-xs text-gray-500 uppercase tracking-wider">Fit</span>
+            {% if ov.get('fit_score') %}
+            <span class="override-badge" onclick="resetField('fit_score')" title="Click to revert to LLM rating ({{ ov.fit_score.llm }}⭐)">
+                was {{ ov.fit_score.llm }}⭐ · reset
+            </span>
+            {% endif %}
+            <div class="star-edit" data-field="fit_score" data-value="{{ e.fit_score }}">
+                {% for i in range(1, 6) %}
+                <span class="star {{ 'filled' if i <= e.fit_score else 'empty' }}" data-n="{{ i }}">⭐</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="flex gap-2">
+            {% if p.is_statistics_adjacent %}
+            <span class="bg-green-900/30 text-green-400 px-2 py-1 rounded text-xs">Stats-Adjacent ✓</span>
+            {% else %}
+            <span class="bg-red-900/30 text-red-400 px-2 py-1 rounded text-xs">Non-Adjacent Field</span>
+            {% endif %}
+            {% if p.ai_in_education %}
+            <span class="bg-blue-900/30 text-blue-400 px-2 py-1 rounded text-xs">AI in Education ✓</span>
+            {% endif %}
+            {# Processing mode badges #}
+            {% if pm.get('rag_enabled') %}
+            <span class="bg-cyan-900/30 text-cyan-400 px-2 py-1 rounded text-xs" title="Evaluated with RAG knowledge base">📚 RAG</span>
+            {% endif %}
+            {% if pm.get('ensemble_enabled') %}
+            <span class="bg-violet-900/30 text-violet-400 px-2 py-1 rounded text-xs" title="Evaluated by {{ pm.get('ensemble_models', [])|length }} models + synthesizer">🤖 Ensemble</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recommendation override -->
+    <div class="mt-4 pt-4 border-t border-gray-800">
+        <span class="text-xs text-gray-500 uppercase tracking-wider mr-3">Recommendation:</span>
+        {% if ov.get('overall_recommendation') %}
+        <span class="override-badge" onclick="resetField('overall_recommendation')" title="Click to revert to LLM recommendation">
+            LLM said {{ ov.overall_recommendation.llm }} · reset
+        </span>
+        {% endif %}
+        <div class="flex flex-wrap gap-2 mt-2" id="rec-selector">
+            {% for rec, emoji in [("Strong", "🟢"), ("Moderate", "🟡"), ("Weak", "🟠"), ("Do Not Advance", "🔴")] %}
+            <span class="rec-option {{ 'selected' if e.overall_recommendation == rec }}"
+                  data-rec="{{ rec }}" onclick="setRecommendation('{{ rec }}')"
+                  style="color: {{ {'Strong':'#a6e3a1','Moderate':'#f9e2af','Weak':'#fab387','Do Not Advance':'#f38ba8'}[rec] }}">
+                {{ emoji }} {{ rec }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Comparative Ranking (if available) ── -->
+{% set comp = data.get('comparative', {}) %}
+{% if comp.get('tier') %}
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-6">
+    <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-4">
+        📊 Comparative Ranking (vs. Pool)
+    </h3>
+    <div class="flex flex-wrap items-center gap-6">
+        <div>
+            <span class="text-xs text-gray-500 uppercase">Tier</span>
+            <p class="text-lg font-semibold {{ {'Top':'text-green-400','Strong':'text-blue-400','Middle':'text-yellow-400','Below Average':'text-orange-400','Weak':'text-red-400'}.get(comp.tier, 'text-gray-400') }}">
+                {{ {'Top':'🏆','Strong':'🟢','Middle':'🟡','Below Average':'🟠','Weak':'🔴'}.get(comp.tier, '⚪') }} {{ comp.tier }}
+            </p>
+        </div>
+        <div>
+            <span class="text-xs text-gray-500 uppercase">Teaching Rank</span>
+            <p class="text-gray-200">#{{ comp.teaching_rank }}
+                <span class="text-gray-500 text-sm">
+                    (curved {{ comp.teaching_curved }}⭐ ← individual {{ comp.teaching_individual }}⭐)
+                </span>
+            </p>
+        </div>
+        <div>
+            <span class="text-xs text-gray-500 uppercase">Research Rank</span>
+            <p class="text-gray-200">#{{ comp.research_rank }}
+                <span class="text-gray-500 text-sm">
+                    (curved {{ comp.research_curved }}⭐ ← individual {{ comp.research_individual }}⭐)
+                </span>
+            </p>
+        </div>
+    </div>
+    {% if comp.comparative_notes %}
+    <p class="text-sm text-gray-400 mt-3 pt-3 border-t border-gray-800">{{ comp.comparative_notes }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- ── Left Column: Profile & Teaching ── -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Quick Profile (Editable) -->
+        {% set pov = p.get('_profile_overrides', {}) %}
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-4">
+                Quick Profile
+                <span class="text-xs text-gray-500 font-normal ml-2">(click fields to edit)</span>
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div class="{{ 'corrected' if pov.get('terminal_degree') }}">
+                    <span class="text-gray-500">Terminal Degree:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'terminal_degree', '{{ p.terminal_degree|replace("'", "\\'")|e }}')">
+                        {{ p.terminal_degree or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('degree_institution') }}">
+                    <span class="text-gray-500">Institution:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'degree_institution', '{{ p.degree_institution|replace("'", "\\'")|e }}')">
+                        {{ p.degree_institution or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('degree_status') }}">
+                    <span class="text-gray-500">Degree Status:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'degree_status', '{{ p.degree_status|replace("'", "\\'")|e }}')">
+                        {{ p.degree_status or 'Unknown' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('degree_year') }}">
+                    <span class="text-gray-500">Degree Year:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'degree_year', '{{ p.degree_year or '' }}')">
+                        {{ p.degree_year or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('current_position') }}">
+                    <span class="text-gray-500">Current Position:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'current_position', '{{ p.current_position|replace("'", "\\'")|e }}')">
+                        {{ p.current_position or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('current_institution') }}">
+                    <span class="text-gray-500">Current Institution:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'current_institution', '{{ p.current_institution|replace("'", "\\'")|e }}')">
+                        {{ p.current_institution or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('email') }}">
+                    <span class="text-gray-500">Email:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'email', '{{ p.email|replace("'", "\\'")|e }}')">
+                        {{ p.email or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+                <div class="{{ 'corrected' if pov.get('degree_field') }}">
+                    <span class="text-gray-500">Degree Field:</span>
+                    <p class="editable-field text-gray-200" onclick="editTextField(this, 'degree_field', '{{ p.degree_field|replace("'", "\\'")|e }}')">
+                        {{ p.degree_field or 'Not specified' }}
+                        <span class="edit-icon">✏️</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Boolean toggles -->
+            <div class="mt-4 pt-4 border-t border-gray-800 flex flex-wrap gap-6">
+                <label class="toggle-switch {{ 'corrected' if pov.get('is_statistics_adjacent') }}">
+                    <input type="checkbox" id="toggle_is_statistics_adjacent"
+                           {{ 'checked' if p.is_statistics_adjacent }}
+                           onchange="saveField('is_statistics_adjacent', this.checked)">
+                    <span class="toggle-slider"></span>
+                    <span class="text-sm text-gray-300">Statistics-Adjacent Field</span>
+                </label>
+                <label class="toggle-switch {{ 'corrected' if pov.get('ai_in_education') }}">
+                    <input type="checkbox" id="toggle_ai_in_education"
+                           {{ 'checked' if p.ai_in_education }}
+                           onchange="saveField('ai_in_education', this.checked)">
+                    <span class="toggle-slider"></span>
+                    <span class="text-sm text-gray-300">AI in Education Experience</span>
+                </label>
+            </div>
+
+            <!-- Courses Taught (display only for now) -->
+            {% if p.courses_taught %}
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <span class="text-gray-500 text-sm">Courses Taught:</span>
+                <div class="mt-2 space-y-1">
+                    {% for c in p.courses_taught %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if c.role in ['instructor', 'co-instructor'] else 'bg-gray-600' }}"></span>
+                        <span class="text-gray-200">
+                            {% if c.course_number %}{{ c.course_number }} - {% endif %}{{ c.course_name }}
+                        </span>
+                        <span class="text-gray-600 text-xs">
+                            ({{ c.role }}{% if c.semesters > 1 %}, {{ c.semesters }}x{% endif %}{% if c.institution %}, {{ c.institution }}{% endif %})
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Technologies (editable list) -->
+            <div class="mt-4 pt-4 border-t border-gray-800 {{ 'corrected' if pov.get('teaching_technologies') }}">
+                <span class="text-gray-500 text-sm">Technologies:</span>
+                <div class="editable-list" id="list_teaching_technologies">
+                    {% for tech in p.teaching_technologies %}
+                    <div class="editable-list-item">
+                        <input type="text" value="{{ tech }}" onchange="saveListField('teaching_technologies')">
+                        <span class="remove-btn" onclick="removeListItem(this, 'teaching_technologies')">✕</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <span class="add-item-btn" onclick="addListItem('teaching_technologies')">+ Add technology</span>
+            </div>
+
+            <!-- Research Areas (editable list) -->
+            <div class="mt-4 pt-4 border-t border-gray-800 {{ 'corrected' if pov.get('research_areas') }}">
+                <span class="text-gray-500 text-sm">Research Areas:</span>
+                <div class="editable-list" id="list_research_areas">
+                    {% for area in p.research_areas %}
+                    <div class="editable-list-item">
+                        <input type="text" value="{{ area }}" onchange="saveListField('research_areas')">
+                        <span class="remove-btn" onclick="removeListItem(this, 'research_areas')">✕</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <span class="add-item-btn" onclick="addListItem('research_areas')">+ Add research area</span>
+            </div>
+
+            <!-- AI in Education details -->
+            {% if p.ai_in_education %}
+            <div class="mt-4 pt-4 border-t border-gray-800 {{ 'corrected' if pov.get('ai_education_details') }}">
+                <span class="text-gray-500 text-sm">AI in Education Details:</span>
+                <p class="editable-field text-gray-300 text-sm mt-1" onclick="editTextField(this, 'ai_education_details', `{{ p.ai_education_details|e }}`)">
+                    {{ p.ai_education_details or 'Click to add details' }}
+                    <span class="edit-icon">✏️</span>
+                </p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Teaching Assessment -->
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-4">
+                Teaching Assessment <span class="stars ml-2">{{ e.teaching_stars|stars }}</span>
+            </h3>
+
+            {% if e.teaching_strengths %}
+            <div class="mb-3">
+                <span class="text-green-400 text-xs font-medium uppercase">Strengths</span>
+                <ul class="mt-1 space-y-1">
+                    {% for s in e.teaching_strengths %}
+                    <li class="text-sm text-gray-300 flex items-start gap-2">
+                        <span class="text-green-500 mt-0.5">✓</span> {{ s }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if e.teaching_weaknesses %}
+            <div class="mb-3">
+                <span class="text-orange-400 text-xs font-medium uppercase">Weaknesses / Gaps</span>
+                <ul class="mt-1 space-y-1">
+                    {% for w in e.teaching_weaknesses %}
+                    <li class="text-sm text-gray-300 flex items-start gap-2">
+                        <span class="text-orange-500 mt-0.5">•</span> {{ w }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if e.teaching_evidence %}
+            <div class="mb-4">
+                <span class="text-blue-400 text-xs font-medium uppercase">Evidence</span>
+                <ul class="mt-1 space-y-1">
+                    {% for ev in e.teaching_evidence %}
+                    <li class="text-sm text-gray-400 flex items-start gap-2">
+                        <span class="text-blue-500 mt-0.5">→</span> {{ ev }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Human teaching notes -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <label class="text-xs text-purdue-gold uppercase tracking-wider">Committee Teaching Notes</label>
+                <textarea class="review-textarea mt-2" id="teaching_notes"
+                          placeholder="Add committee notes on teaching qualifications..."
+                          onchange="saveField('teaching_notes', this.value)">{{ r.get('teaching_notes', '') }}</textarea>
+            </div>
+        </section>
+
+        <!-- Research Assessment -->
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-4">
+                Research Assessment <span class="stars ml-2">{{ e.research_stars|stars }}</span>
+            </h3>
+
+            {% if e.research_strengths %}
+            <div class="mb-3">
+                <span class="text-green-400 text-xs font-medium uppercase">Strengths</span>
+                <ul class="mt-1 space-y-1">
+                    {% for s in e.research_strengths %}
+                    <li class="text-sm text-gray-300 flex items-start gap-2">
+                        <span class="text-green-500 mt-0.5">✓</span> {{ s }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if e.research_weaknesses %}
+            <div class="mb-3">
+                <span class="text-orange-400 text-xs font-medium uppercase">Weaknesses / Gaps</span>
+                <ul class="mt-1 space-y-1">
+                    {% for w in e.research_weaknesses %}
+                    <li class="text-sm text-gray-300 flex items-start gap-2">
+                        <span class="text-orange-500 mt-0.5">•</span> {{ w }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Human research notes -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <label class="text-xs text-purdue-gold uppercase tracking-wider">Committee Research Notes</label>
+                <textarea class="review-textarea mt-2" id="research_notes"
+                          placeholder="Add committee notes on research..."
+                          onchange="saveField('research_notes', this.value)">{{ r.get('research_notes', '') }}</textarea>
+            </div>
+        </section>
+
+        <!-- Letters of Recommendation -->
+        {% if e.letter_summaries %}
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-4">
+                Letters of Recommendation ({{ e.letter_summaries|length }})
+            </h3>
+
+            {% if e.letter_consensus %}
+            <p class="text-sm text-gray-300 mb-4 p-3 bg-gray-800 rounded">
+                <span class="text-gray-500 text-xs uppercase">Consensus:</span> {{ e.letter_consensus }}
+            </p>
+            {% endif %}
+
+            <div class="space-y-4">
+                {% for letter in e.letter_summaries %}
+                <div class="border border-gray-800 rounded p-4">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <span class="text-gray-200 font-medium text-sm">{{ letter.writer_name or 'Unknown Writer' }}</span>
+                            {% if letter.writer_title %}
+                            <span class="text-gray-500 text-xs"> · {{ letter.writer_title }}</span>
+                            {% endif %}
+                            {% if letter.writer_institution %}
+                            <span class="text-gray-600 text-xs"> · {{ letter.writer_institution }}</span>
+                            {% endif %}
+                        </div>
+                        <span class="text-xs font-medium {{ letter.tone|tone_color }}">{{ letter.tone }}</span>
+                    </div>
+
+                    {% if letter.relationship_to_candidate %}
+                    <p class="text-xs text-gray-500 mb-2">Relationship: {{ letter.relationship_to_candidate }}</p>
+                    {% endif %}
+
+                    {% if letter.key_points %}
+                    <ul class="space-y-1 mb-2">
+                        {% for point in letter.key_points %}
+                        <li class="text-sm text-gray-400">• {{ point }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if letter.teaching_comments %}
+                    <p class="text-sm text-gray-300 mt-2">
+                        <span class="text-purdue-gold text-xs uppercase">Teaching:</span> {{ letter.teaching_comments }}
+                    </p>
+                    {% endif %}
+
+                    {% if letter.concerns_raised %}
+                    <p class="text-sm text-orange-300 mt-2">
+                        <span class="text-orange-400 text-xs uppercase">Concerns:</span> {{ letter.concerns_raised }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+    </div>
+
+    <!-- ── Right Column: Sidebar ── -->
+    <div class="space-y-6">
+
+        <!-- Committee Comments (prominent) -->
+        <section class="bg-gray-900 border border-purdue-gold/30 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">
+                📝 Committee Comments
+            </h3>
+            <textarea class="review-textarea" id="comments" rows="5"
+                      placeholder="General committee notes, discussion points, or decision rationale..."
+                      onchange="saveField('comments', this.value)">{{ r.get('comments', '') }}</textarea>
+            <p class="text-xs text-gray-600 mt-2">Auto-saves on change</p>
+        </section>
+
+        <!-- Executive Summary -->
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">Executive Summary</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">{{ e.executive_summary or 'No summary generated.' }}</p>
+        </section>
+
+        <!-- Fit Rationale -->
+        {% if e.fit_rationale %}
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">
+                Fit Assessment <span class="stars ml-2">{{ e.fit_score|stars }}</span>
+            </h3>
+            <p class="text-sm text-gray-300 leading-relaxed">{{ e.fit_rationale }}</p>
+        </section>
+        {% endif %}
+
+        <!-- Red Flags -->
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">Red Flags</h3>
+            {% if e.red_flags %}
+            <div class="space-y-3">
+                {% for rf in e.red_flags %}
+                <div class="border-l-2 {{ 'border-red-500' if rf.severity == 'Serious' else ('border-orange-500' if rf.severity == 'Moderate' else 'border-yellow-500') }} pl-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium {{ rf.severity|severity_color }}">{{ rf.severity }}</span>
+                        <span class="text-xs text-gray-500">{{ rf.category }}</span>
+                    </div>
+                    <p class="text-sm text-gray-300 mt-1">{{ rf.description }}</p>
+                    <p class="text-xs text-gray-600 mt-1">Source: {{ rf.source_document }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-green-400">✓ No red flags identified</p>
+            {% endif %}
+        </section>
+
+        <!-- ── Ensemble Details (if available) ── -->
+        {% if ens.get('steps') %}
+        <section class="bg-gray-900 border border-violet-900/50 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-violet-400 uppercase tracking-wider mb-3 cursor-pointer"
+                data-collapse="ensemble-content">
+                <span class="collapse-icon">▸</span> 🤖 Ensemble Details
+                <span class="text-xs text-gray-500 font-normal ml-1">
+                    ({{ ens.get('models', [])|length }} models → {{ ens.get('synthesizer_model', '?') }})
+                </span>
+            </h3>
+            <div id="ensemble-content" class="hidden">
+                <p class="text-xs text-gray-500 mb-3">
+                    Individual model evaluations before synthesis. The final rating above is the synthesized result.
+                </p>
+
+                {% for step_name, step_results in ens.get('steps', {}).items() %}
+                <div class="mb-4">
+                    <h4 class="text-xs text-violet-300 uppercase tracking-wider mb-2">{{ step_name|replace('_', ' ')|title }}</h4>
+                    {% for result in step_results %}
+                    <div class="ensemble-model-block">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-medium text-gray-300">{{ result.get('model', 'Unknown') }}</span>
+                            {% if result.get('error') %}
+                            <span class="text-xs text-red-400">✕ Failed</span>
+                            {% else %}
+                            <span class="text-xs text-green-400">✓</span>
+                            {# Show star rating if available #}
+                            {% if result.get('data', {}).get('teaching_stars') %}
+                            <span class="text-xs text-gray-500">Teaching: {{ result.data.teaching_stars }}⭐</span>
+                            {% endif %}
+                            {% if result.get('data', {}).get('research_stars') %}
+                            <span class="text-xs text-gray-500">Research: {{ result.data.research_stars }}⭐</span>
+                            {% endif %}
+                            {% if result.get('data', {}).get('fit_score') %}
+                            <span class="text-xs text-gray-500">Fit: {{ result.data.fit_score }}⭐</span>
+                            {% endif %}
+                            {% if result.get('data', {}).get('overall_recommendation') %}
+                            <span class="text-xs {{ result.data.overall_recommendation|rec_color }}">{{ result.data.overall_recommendation }}</span>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                        {% if result.get('error') %}
+                        <pre>{{ result.error }}</pre>
+                        {% elif result.get('data') %}
+                        <pre>{{ result.data|tojson_pretty }}</pre>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Documents -->
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">Documents</h3>
+            <div class="space-y-2">
+                {% for doc in data.documents %}
+                <div class="flex items-center justify-between p-2 bg-gray-800 rounded text-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-gray-500">
+                            {% if doc.file_extension == '.pdf' %}📄{% elif doc.file_extension in ['.docx', '.doc'] %}📝{% else %}📎{% endif %}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-gray-200 truncate text-xs">{{ doc.filename }}</p>
+                            <p class="text-gray-600 text-xs">
+                                {{ doc.category or 'uncategorized' }}
+                                · {{ doc.word_count }} words
+                            </p>
+                        </div>
+                    </div>
+                    {% if data.can_serve_documents %}
+                    <a href="/documents/{{ data.folder_name }}/{{ doc.filename }}"
+                       target="_blank"
+                       class="text-xs text-blue-400 hover:text-blue-300 whitespace-nowrap ml-2">
+                        View →
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Additional Info -->
+        {% if p.awards or p.additional_degrees %}
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider mb-3">Additional Info</h3>
+
+            {% if p.additional_degrees %}
+            <div class="mb-3">
+                <span class="text-gray-500 text-xs">Other Degrees:</span>
+                {% for deg in p.additional_degrees %}
+                <p class="text-sm text-gray-300">{{ deg }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if p.awards %}
+            <div class="mb-3">
+                <span class="text-gray-500 text-xs">Awards:</span>
+                {% for award in p.awards %}
+                <p class="text-sm text-gray-300">🏆 {{ award }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if p.publications_count %}
+            <p class="text-sm text-gray-400">📚 {{ p.publications_count }} publications</p>
+            {% endif %}
+            {% if p.grants_count %}
+            <p class="text-sm text-gray-400">💰 {{ p.grants_count }} grants</p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <!-- ── Processing Metadata ── -->
+        {% if pm %}
+        <section class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 cursor-pointer"
+                data-collapse="processing-meta-content">
+                <span class="collapse-icon">▸</span> Processing Info
+            </h3>
+            <div id="processing-meta-content" class="hidden text-xs text-gray-500 space-y-1">
+                {% if pm.get('processed_at') %}
+                <p>Processed: {{ pm.processed_at[:19] }}</p>
+                {% endif %}
+                <p>Evaluation model: {{ pm.get('evaluation_model', 'default') }}</p>
+                <p>RAG: {{ '✅ Enabled' if pm.get('rag_enabled') else '❌ Disabled' }}</p>
+                <p>Ensemble: {{ '✅ Enabled' if pm.get('ensemble_enabled') else '❌ Disabled' }}</p>
+                {% if pm.get('ensemble_models') %}
+                <p>Models: {{ pm.ensemble_models|join(', ') }}</p>
+                {% endif %}
+                {% if pm.get('synthesizer_model') %}
+                <p>Synthesizer: {{ pm.synthesizer_model }}</p>
+                {% endif %}
+                {% if rag.get('kb_id') %}
+                <p>KB ID: {{ rag.kb_id[:12] }}…</p>
+                <p>Files indexed: {{ rag.get('file_ids', [])|length }}</p>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Save notification -->
+<div id="save-flash" class="save-flash">✓ Saved</div>
+
+<!-- ── Chat Panel (slide-out, only if RAG KB exists) ── -->
+{% if rag.get('kb_id') %}
+<div id="chat-toggle" class="chat-pulse fixed bottom-6 right-6 z-40 cursor-pointer bg-cyan-700 hover:bg-cyan-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-all"
+     onclick="toggleChatPanel()" title="Chat with applicant documents">
+    <span class="text-xl">💬</span>
+</div>
+
+<div id="chat-panel" class="fixed bottom-0 right-0 z-50 hidden" style="width: 420px; height: 70vh;">
+    <div class="bg-gray-900 border border-gray-700 rounded-tl-lg shadow-2xl flex flex-col h-full">
+        <!-- Chat header -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900 rounded-tl-lg">
+            <div>
+                <h4 class="text-sm font-semibold text-cyan-400">💬 Ask about {{ p.name }}</h4>
+                <p class="text-xs text-gray-500">RAG-powered · querying their documents</p>
+            </div>
+            <button onclick="toggleChatPanel()" class="text-gray-500 hover:text-gray-300 text-lg">✕</button>
+        </div>
+
+        <!-- Chat messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3" style="scroll-behavior: smooth;">
+            <div class="text-sm text-gray-500 italic">
+                Ask questions about {{ p.name }}'s application documents (CV, teaching statement, research statement, letters of recommendation).
+            </div>
+        </div>
+
+        <!-- Chat input -->
+        <div class="border-t border-gray-800 px-4 py-3">
+            <div class="flex gap-2">
+                <input type="text" id="chat-input"
+                       class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                       placeholder="e.g., What courses have they taught?"
+                       onkeydown="if(event.key==='Enter')sendChatMessage()">
+                <button onclick="sendChatMessage()"
+                        class="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    Send
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-2">
+                <button onclick="quickChat('What teaching experience do they have?')" class="text-xs bg-gray-800 text-gray-400 hover:text-cyan-400 px-2 py-1 rounded border border-gray-700 hover:border-cyan-700 transition-colors">Teaching exp?</button>
+                <button onclick="quickChat('Summarize their research interests')" class="text-xs bg-gray-800 text-gray-400 hover:text-cyan-400 px-2 py-1 rounded border border-gray-700 hover:border-cyan-700 transition-colors">Research?</button>
+                <button onclick="quickChat('What do the recommendation letters say about them?')" class="text-xs bg-gray-800 text-gray-400 hover:text-cyan-400 px-2 py-1 rounded border border-gray-700 hover:border-cyan-700 transition-colors">Letters?</button>
+                <button onclick="quickChat('Do they have experience with statistics courses?')" class="text-xs bg-gray-800 text-gray-400 hover:text-cyan-400 px-2 py-1 rounded border border-gray-700 hover:border-cyan-700 transition-colors">Stats courses?</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const FOLDER = document.getElementById('app-data').dataset.folder;
+let saveTimeout = null;
+
+// ── Save helpers ──
+
+function flashSave(msg) {
+    const el = document.getElementById('save-flash');
+    el.textContent = msg || '✓ Saved';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+async function postReview(data) {
+    try {
+        const resp = await fetch(`/api/applicant/${FOLDER}/review`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.ok) flashSave();
+        else console.error('Save failed:', result);
+    } catch (err) {
+        console.error('Save error:', err);
+        flashSave('⚠ Save failed');
+    }
+}
+
+// ── Star editing ──
+
+document.querySelectorAll('.star-edit').forEach(widget => {
+    const field = widget.dataset.field;
+    const stars = widget.querySelectorAll('.star');
+
+    // Hover preview
+    stars.forEach(star => {
+        star.addEventListener('mouseenter', () => {
+            const n = parseInt(star.dataset.n);
+            stars.forEach(s => {
+                s.classList.toggle('filled', parseInt(s.dataset.n) <= n);
+                s.classList.toggle('empty', parseInt(s.dataset.n) > n);
+            });
+        });
+    });
+
+    // Reset on mouse leave
+    widget.addEventListener('mouseleave', () => {
+        const current = parseInt(widget.dataset.value);
+        stars.forEach(s => {
+            s.classList.toggle('filled', parseInt(s.dataset.n) <= current);
+            s.classList.toggle('empty', parseInt(s.dataset.n) > current);
+        });
+    });
+
+    // Click to set
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            const n = parseInt(star.dataset.n);
+            widget.dataset.value = n;
+            stars.forEach(s => {
+                s.classList.toggle('filled', parseInt(s.dataset.n) <= n);
+                s.classList.toggle('empty', parseInt(s.dataset.n) > n);
+            });
+            postReview({[field]: n});
+        });
+    });
+});
+
+// ── Recommendation selector ──
+
+function setRecommendation(rec) {
+    document.querySelectorAll('#rec-selector .rec-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.rec === rec);
+    });
+    postReview({overall_recommendation: rec});
+}
+
+// ── Text field save (debounced) ──
+
+function saveField(field, value) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        postReview({[field]: value});
+    }, 500);
+}
+
+// ── Shortlist toggle ──
+
+function toggleShortlist() {
+    const btn = document.getElementById('shortlist-btn');
+    const isActive = btn.classList.toggle('active');
+    btn.textContent = isActive ? '★ Shortlisted' : '☆ Shortlist';
+    postReview({shortlist: isActive});
+}
+
+// ── Reset override ──
+
+async function resetField(field) {
+    if (!confirm(`Reset ${field.replace(/_/g, ' ')} to LLM value?`)) return;
+    try {
+        const resp = await fetch(`/api/applicant/${FOLDER}/review/reset`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field}),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            flashSave('✓ Reset to LLM value');
+            setTimeout(() => location.reload(), 600);
+        }
+    } catch (err) {
+        console.error('Reset error:', err);
+    }
+}
+
+// ── Inline text field editing ──
+
+function editTextField(element, field, currentValue) {
+    // Don't re-edit if already in edit mode
+    if (element.querySelector('input')) return;
+
+    const originalHTML = element.innerHTML;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input';
+    input.value = currentValue || '';
+    input.placeholder = 'Enter value...';
+
+    element.innerHTML = '';
+    element.appendChild(input);
+    input.focus();
+    input.select();
+
+    // Save on blur or Enter
+    const save = () => {
+        const newValue = input.value.trim();
+        element.innerHTML = `${newValue || 'Not specified'} <span class="edit-icon">✏️</span>`;
+        element.onclick = () => editTextField(element, field, newValue);
+        postReview({[field]: newValue});
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            save();
+        } else if (e.key === 'Escape') {
+            element.innerHTML = originalHTML;
+        }
+    });
+}
+
+// ── Editable list functions ──
+
+function getListValues(field) {
+    const container = document.getElementById(`list_${field}`);
+    if (!container) return [];
+    const inputs = container.querySelectorAll('input[type="text"]');
+    return Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+}
+
+function saveListField(field) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        const values = getListValues(field);
+        postReview({[field]: values});
+    }, 500);
+}
+
+function addListItem(field) {
+    const container = document.getElementById(`list_${field}`);
+    if (!container) return;
+
+    const item = document.createElement('div');
+    item.className = 'editable-list-item';
+    item.innerHTML = `
+        <input type="text" value="" placeholder="Enter value..." onchange="saveListField('${field}')">
+        <span class="remove-btn" onclick="removeListItem(this, '${field}')">✕</span>
+    `;
+    container.appendChild(item);
+
+    const input = item.querySelector('input');
+    input.focus();
+}
+
+function removeListItem(btn, field) {
+    const item = btn.closest('.editable-list-item');
+    if (item) {
+        item.remove();
+        saveListField(field);
+    }
+}
+
+// ── Editable strengths/weaknesses lists ──
+
+function editListSection(sectionId, field, currentItems) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+
+    // Build edit UI
+    let html = '<div class="editable-list" id="edit_' + field + '">';
+    currentItems.forEach((item, i) => {
+        html += `
+            <div class="editable-list-item">
+                <input type="text" value="${item.replace(/"/g, '&quot;')}" onchange="saveEvalListField('${field}')">
+                <span class="remove-btn" onclick="removeEvalListItem(this, '${field}')">✕</span>
+            </div>`;
+    });
+    html += '</div>';
+    html += `<span class="add-item-btn" onclick="addEvalListItem('${field}')">+ Add item</span>`;
+
+    section.innerHTML = html;
+}
+
+function getEvalListValues(field) {
+    const container = document.getElementById(`edit_${field}`);
+    if (!container) return [];
+    const inputs = container.querySelectorAll('input[type="text"]');
+    return Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+}
+
+function saveEvalListField(field) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        const values = getEvalListValues(field);
+        postReview({[field]: values});
+    }, 500);
+}
+
+function addEvalListItem(field) {
+    const container = document.getElementById(`edit_${field}`);
+    if (!container) return;
+
+    const item = document.createElement('div');
+    item.className = 'editable-list-item';
+    item.innerHTML = `
+        <input type="text" value="" placeholder="Enter item..." onchange="saveEvalListField('${field}')">
+        <span class="remove-btn" onclick="removeEvalListItem(this, '${field}')">✕</span>
+    `;
+    container.appendChild(item);
+    item.querySelector('input').focus();
+}
+
+function removeEvalListItem(btn, field) {
+    const item = btn.closest('.editable-list-item');
+    if (item) {
+        item.remove();
+        saveEvalListField(field);
+    }
+}// ── Chat Panel ──
+
+function toggleChatPanel() {
+    const panel = document.getElementById('chat-panel');
+    const toggle = document.getElementById('chat-toggle');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (toggle) toggle.style.display = isHidden ? 'none' : 'flex';
+    if (toggle) toggle.classList.remove('chat-pulse');  // stop pulsing after first open
+    if (isHidden) {
+        document.getElementById('chat-input')?.focus();
+    }
+}
+
+function quickChat(msg) {
+    document.getElementById('chat-input').value = msg;
+    sendChatMessage();
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const messages = document.getElementById('chat-messages');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    // Add user message
+    const userBubble = document.createElement('div');
+    userBubble.className = 'flex justify-end';
+    userBubble.innerHTML = `<div class="bg-cyan-900/40 border border-cyan-800/50 rounded-lg px-3 py-2 max-w-[85%]"><p class="text-sm text-gray-200">${escapeHtml(msg)}</p></div>`;
+    messages.appendChild(userBubble);
+
+    // Clear input
+    input.value = '';
+    input.disabled = true;
+
+    // Add loading indicator
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'flex justify-start';
+    loadingEl.id = 'chat-loading';
+    loadingEl.innerHTML = `<div class="bg-gray-800 rounded-lg px-3 py-2"><p class="text-sm text-gray-400">Searching documents...</p></div>`;
+    messages.appendChild(loadingEl);
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+        const resp = await fetch(`/api/applicant/${FOLDER}/chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: msg}),
+        });
+        const data = await resp.json();
+
+        // Remove loading
+        document.getElementById('chat-loading')?.remove();
+
+        const botBubble = document.createElement('div');
+        botBubble.className = 'flex justify-start';
+
+        if (data.error) {
+            botBubble.innerHTML = `<div class="bg-red-900/30 border border-red-800/50 rounded-lg px-3 py-2 max-w-[85%]"><p class="text-sm text-red-300">${escapeHtml(data.error)}</p></div>`;
+        } else {
+            botBubble.innerHTML = `<div class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 max-w-[85%]"><p class="text-sm text-gray-300 whitespace-pre-wrap">${escapeHtml(data.response)}</p></div>`;
+        }
+        messages.appendChild(botBubble);
+    } catch (err) {
+        document.getElementById('chat-loading')?.remove();
+        const errBubble = document.createElement('div');
+        errBubble.className = 'flex justify-start';
+        errBubble.innerHTML = `<div class="bg-red-900/30 rounded-lg px-3 py-2"><p class="text-sm text-red-300">Network error: ${escapeHtml(err.message)}</p></div>`;
+        messages.appendChild(errBubble);
+    }
+
+    input.disabled = false;
+    input.focus();
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
