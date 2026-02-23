@@ -16,14 +16,6 @@
 
 {% block extra_head %}
 <style>
-    /* Chat toggle pulse animation */
-    @keyframes chat-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0.6); }
-        70% { box-shadow: 0 0 0 14px rgba(14, 116, 144, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(14, 116, 144, 0); }
-    }
-    .chat-pulse { animation: chat-pulse 2s ease-out infinite; }
-
     /* Editable star widget */
     .star-edit { display: inline-flex; gap: 2px; cursor: pointer; }
     .star-edit .star { font-size: 1.3rem; transition: transform 0.1s; user-select: none; }
@@ -60,16 +52,14 @@
     }
     .save-flash.show { opacity: 1; }
 
-    /* Shortlist toggle */
-    .shortlist-btn {
+    /* Stage action buttons */
+    .stage-btn {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 6px 14px; border-radius: 8px; font-size: 0.8rem;
         border: 1px solid #45475a; cursor: pointer; transition: all 0.15s;
         background: transparent; color: #9399b2;
     }
-    .shortlist-btn.active {
-        background: rgba(166, 227, 161, 0.1); border-color: #a6e3a1; color: #a6e3a1;
-    }
+    .stage-btn:hover { background: rgba(206, 184, 136, 0.1); }
 
     /* Recommendation selector */
     .rec-option {
@@ -178,10 +168,6 @@
                     {{ p.name }}
                     <span class="edit-icon text-sm">✏️</span>
                 </h2>
-                <button id="shortlist-btn" class="shortlist-btn {{ 'active' if r.get('shortlist') }}"
-                        onclick="toggleShortlist()">
-                    {{ '★ Shortlisted' if r.get('shortlist') else '☆ Shortlist' }}
-                </button>
             </div>
             <p class="text-gray-400 mt-1">
                 {{ p.terminal_degree or 'Degree not specified' }}
@@ -281,6 +267,72 @@
             </span>
             {% endfor %}
         </div>
+    </div>
+</div>
+
+<!-- ── Stage Pipeline Controls ── -->
+{% set current_stage = r.get('stage', 'received') %}
+{% set cs_info = stage_map.get(current_stage, stage_map['received']) %}
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-6">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-purdue-gold uppercase tracking-wider">Pipeline Stage</h3>
+        {% if current_stage == 'rejected' and r.get('rejected_from') %}
+        <span class="text-xs text-red-400">Rejected from {{ r.rejected_from|stage_label }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Stage progression bar -->
+    {% set stage_ids = stages|map(attribute='id')|list %}
+    {% set current_idx = index_of(stage_ids, current_stage) %}
+    <div class="flex items-center gap-1 mb-4 overflow-x-auto">
+        {% for s in stages %}
+        {% set is_current = (current_stage == s.id) %}
+        {% set is_past = (current_idx >= 0 and loop.index0 < current_idx) %}
+        <button onclick="setStage('{{ s.id }}')"
+                class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-all whitespace-nowrap
+                       {{ 'bg-' + s.tw + '-900/40 text-' + s.tw + '-300 border border-' + s.tw + '-600/50 font-semibold' if is_current
+                          else ('text-' + s.tw + '-500/60' if is_past
+                          else 'text-gray-600 hover:text-gray-400 hover:bg-gray-800') }}">
+            {{ s.emoji }} {{ s.label }}
+        </button>
+        {% if not loop.last %}
+        <span class="text-gray-700 text-xs">→</span>
+        {% endif %}
+        {% endfor %}
+
+        <span class="text-gray-700 mx-1">│</span>
+
+        <button onclick="setStage('rejected')"
+                class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-all whitespace-nowrap
+                       {{ 'bg-red-900/40 text-red-300 border border-red-600/50 font-semibold' if current_stage == 'rejected'
+                          else 'text-gray-600 hover:text-red-400 hover:bg-gray-800' }}">
+            ✕ Rejected
+        </button>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="flex items-center gap-3">
+        {% if current_stage != 'rejected' and current_stage != 'offer' %}
+        <button onclick="advanceStage()"
+                class="bg-green-900/30 hover:bg-green-900/50 text-green-400 border border-green-700/50 px-4 py-2 rounded-lg text-sm transition-colors">
+            ▶ Advance to Next Stage
+        </button>
+        <button onclick="rejectApplicant()"
+                class="text-red-400/50 hover:text-red-400 border border-gray-800 hover:border-red-800 px-4 py-2 rounded-lg text-sm transition-colors">
+            ✕ Reject
+        </button>
+        {% elif current_stage == 'rejected' %}
+        <button onclick="setStage('received')"
+                class="bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-400 border border-yellow-700/50 px-4 py-2 rounded-lg text-sm transition-colors">
+            ↩ Restore to Received
+        </button>
+        {% elif current_stage == 'offer' %}
+        <span class="text-green-400 text-sm">🎉 Offer extended — final stage</span>
+        {% endif %}
+
+        {% if r.get('rejection_reason') %}
+        <span class="text-xs text-gray-500 italic ml-2">Reason: {{ r.rejection_reason }}</span>
+        {% endif %}
     </div>
 </div>
 
@@ -828,7 +880,7 @@
 
 <!-- ── Chat Panel (slide-out, only if RAG KB exists) ── -->
 {% if rag.get('kb_id') %}
-<div id="chat-toggle" class="chat-pulse fixed bottom-6 right-6 z-40 cursor-pointer bg-cyan-700 hover:bg-cyan-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-all"
+<div id="chat-toggle" class="fixed bottom-6 right-6 z-40 cursor-pointer bg-cyan-700 hover:bg-cyan-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-all"
      onclick="toggleChatPanel()" title="Chat with applicant documents">
     <span class="text-xl">💬</span>
 </div>
@@ -963,13 +1015,53 @@ function saveField(field, value) {
     }, 500);
 }
 
-// ── Shortlist toggle ──
+// ── Stage Management ──
 
-function toggleShortlist() {
-    const btn = document.getElementById('shortlist-btn');
-    const isActive = btn.classList.toggle('active');
-    btn.textContent = isActive ? '★ Shortlisted' : '☆ Shortlist';
-    postReview({shortlist: isActive});
+async function setStage(stage) {
+    const resp = await fetch(`/api/applicant/${FOLDER}/stage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({stage: stage}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        flashSave(`✓ Moved to ${data.stage_info?.label || stage}`);
+        setTimeout(() => location.reload(), 600);
+    } else {
+        flashSave('⚠ ' + (data.error || 'Failed'));
+    }
+}
+
+async function advanceStage() {
+    const resp = await fetch(`/api/applicant/${FOLDER}/stage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'advance'}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        flashSave(`✓ Advanced to ${data.stage_info?.label || 'next stage'}`);
+        setTimeout(() => location.reload(), 600);
+    } else {
+        flashSave('⚠ ' + (data.error || 'Failed'));
+    }
+}
+
+async function rejectApplicant() {
+    const reason = prompt('Rejection reason (optional):');
+    if (reason === null) return; // cancelled
+    const resp = await fetch(`/api/applicant/${FOLDER}/stage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'reject', reason: reason || ''}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        flashSave('✓ Rejected');
+        setTimeout(() => location.reload(), 600);
+    } else {
+        flashSave('⚠ ' + (data.error || 'Failed'));
+    }
 }
 
 // ── Reset override ──
@@ -1135,7 +1227,6 @@ function toggleChatPanel() {
     const isHidden = panel.classList.contains('hidden');
     panel.classList.toggle('hidden');
     if (toggle) toggle.style.display = isHidden ? 'none' : 'flex';
-    if (toggle) toggle.classList.remove('chat-pulse');  // stop pulsing after first open
     if (isHidden) {
         document.getElementById('chat-input')?.focus();
     }

@@ -5,37 +5,21 @@ Job Application Summarizer - Main Entry Point
 Usage:
     python run.py process <applicants_dir> [--model MODEL] [--results-dir DIR] [--reprocess]
                           [--skip-rank] [--no-rag] [--no-ensemble] [--force-recreate-kbs]
-                          [--position YAML]
-    python run.py rank [--model MODEL] [--results-dir DIR] [--position YAML] [--ensemble]
+    python run.py rank [--model MODEL] [--results-dir DIR]
     python run.py serve [--port PORT] [--results-dir DIR] [--applicants-dir DIR]
-                        [--model MODEL] [--no-chat] [--position YAML]
     python run.py status <applicants_dir> [--results-dir DIR]
     python run.py export <applicants_dir> [--results-dir DIR] [--output FILE]
     python run.py cleanup-kbs [--results-dir DIR]
 
 Examples:
-    # Process with default config (VAP teaching at Purdue)
     python run.py process ../vap-search-2025/
     python run.py process ../vap-search-2025/ --model gemma3:12b
     python run.py process ../vap-search-2025/ --no-ensemble       # RAG only, single model
     python run.py process ../vap-search-2025/ --no-rag --no-ensemble  # Classic mode
     python run.py process ../vap-search-2025/ --force-recreate-kbs    # Rebuild all KBs
     python run.py process ../vap-search-2025/Alice_Smith/  # Single applicant
-
-    # Process with a custom position profile
-    python run.py process ../tt-search-2026/ --position positions/tt-research-2026.yaml
-    python run.py process ../vap-search-2025/ --position positions/vap-teaching-2025.yaml
-
-    # Ranking
     python run.py rank --model deepseek-r1:70b             # Re-rank with different model
-    python run.py rank --ensemble                          # Multi-model ensemble ranking
-    python run.py rank --ensemble --position positions/tt-research-2026.yaml
-
-    # Viewer
     python run.py serve --port 8080
-    python run.py serve --position positions/vap-teaching-2025.yaml  # Chat uses position context
-
-    # Utilities
     python run.py status ../vap-search-2025/
     python run.py export ../vap-search-2025/ --output summary.csv
     python run.py cleanup-kbs                              # Delete all KBs from server
@@ -52,7 +36,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import Config, load_position_yaml
+from src.config import Config
 from src.models import Document, DocumentCategory, ApplicantProfile, Evaluation
 from src.extraction import extract_all_documents
 from src.analysis import categorize_all_documents, build_profile, evaluate_applicant
@@ -113,15 +97,7 @@ def folder_to_name(folder: Path) -> str:
 # ── Process Command ──
 def process_applicants(args):
     """Process all applicants: extract, categorize, [RAG], profile, evaluate [ensemble]."""
-    # Load config — from YAML position profile or defaults
-    if hasattr(args, 'position') and args.position:
-        config = load_position_yaml(args.position)
-        print(f"📋 Position profile: {args.position}")
-        print(f"   {config.position_summary()}")
-        print(f"   Primary: {config.weights.primary}, Secondary: {config.weights.secondary}")
-    else:
-        config = Config()
-
+    config = Config()
     config.applicants_dir = Path(args.applicants_dir).resolve()
     if args.results_dir:
         config.results_dir = Path(args.results_dir).resolve()
@@ -217,18 +193,12 @@ def process_applicants(args):
         print(f"\n{'='*60}")
         print("COMPARATIVE RANKING")
         print(f"{'='*60}")
-        _run_ranking(config.results_dir, client, config)
+        _run_ranking(config.results_dir, client)
 
 
 def rank_applicants(args):
     """Run (or re-run) comparative ranking on already-processed results."""
-    # Load config — from YAML position profile or defaults
-    if hasattr(args, 'position') and args.position:
-        config = load_position_yaml(args.position)
-        print(f"📋 Position profile: {args.position}")
-    else:
-        config = Config()
-
+    config = Config()
     if args.results_dir:
         config.results_dir = Path(args.results_dir).resolve()
     else:
@@ -238,26 +208,17 @@ def rank_applicants(args):
     client = LLMClient(model=model)
     print(f"\n🔧 Using LLM model: {model}")
 
-    # Ensemble for ranking
-    ensemble_config = None
-    if getattr(args, 'ensemble', False):
-        ensemble_config = config.ensemble
-        ensemble_config.enabled = True
-        print(f"🔀 Ensemble ranking: {len(ensemble_config.models)} models → {ensemble_config.synthesizer_model}")
-
-    _run_ranking(config.results_dir, client, config, ensemble_config=ensemble_config)
+    _run_ranking(config.results_dir, client)
 
 
-def _run_ranking(results_dir: Path, client: LLMClient, config: Config | None = None, ensemble_config=None):
+def _run_ranking(results_dir: Path, client: LLMClient):
     """Shared logic for comparative ranking."""
     from src.analysis.comparative import run_comparative_ranking
 
-    result = run_comparative_ranking(results_dir, client, config=config, ensemble_config=ensemble_config)
+    result = run_comparative_ranking(results_dir, client)
 
     if not result:
         return
-
-    primary = config.weights.primary if config else "teaching"
 
     print(f"\n📊 Comparative Rankings ({result['pool_size']} candidates)")
     print(f"   Pool avg teaching: {result['pool_stats']['avg_teaching_individual']:.1f}⭐  "
@@ -268,10 +229,9 @@ def _run_ranking(results_dir: Path, client: LLMClient, config: Config | None = N
 
     # Print ranked table
     tier_emoji = {"Top": "🏆", "Strong": "🟢", "Middle": "🟡", "Below Average": "🟠", "Weak": "🔴"}
-    primary_rank_key = f"{primary}_rank"
     for r in result["rankings"]:
         emoji = tier_emoji.get(r["tier"], "⚪")
-        print(f"  {emoji} #{r.get(primary_rank_key, 0):2d}  "
+        print(f"  {emoji} #{r['teaching_rank']:2d}  "
               f"T:{r['teaching_curved']}⭐(was {r['teaching_individual']}⭐)  "
               f"R:{r['research_curved']}⭐(was {r['research_individual']}⭐)  "
               f"{r['tier']:14s}  {r['name']}")
@@ -350,7 +310,6 @@ def _process_single_applicant(
         client,
         kb_id=kb_id,
         ensemble_config=ensemble_config,
-        config=config,
     )
 
     # ── 6. Save results ──
@@ -412,9 +371,15 @@ def _save_results(
 
     # Document metadata (without raw text — that stays in memory only)
     with open(results_path / "documents.json", "w") as f:
+        # Store relative path for portability across machines
+        try:
+            rel_source = source_folder.resolve().relative_to(config.results_dir.parent)
+        except ValueError:
+            import os
+            rel_source = os.path.relpath(source_folder.resolve(), config.results_dir)
         json.dump(
             {
-                "source_folder": str(source_folder),
+                "source_folder": str(rel_source),
                 "documents": [d.to_dict() for d in documents],
             },
             f,
@@ -432,16 +397,6 @@ def _save_results(
                 "ensemble_models": config.ensemble.models if config.ensemble.enabled else [],
                 "synthesizer_model": config.ensemble.synthesizer_model if config.ensemble.enabled else None,
                 "evaluation_model": config.llm.evaluation_model,
-                "position": {
-                    "summary": config.position_summary(),
-                    "title": config.position.position_title,
-                    "focus": config.position.position_focus,
-                    "duration": config.position.position_duration,
-                    "department": config.position.department,
-                    "university": config.position.university,
-                    "primary_weight": config.weights.primary,
-                    "secondary_weight": config.weights.secondary,
-                },
             },
             f,
             indent=2,
@@ -560,19 +515,11 @@ def serve_viewer(args):
     else:
         print(f"💬 Chat: Disabled (--no-chat)")
 
-    # Load position config for chat context
-    position_config = None
-    if hasattr(args, 'position') and args.position:
-        position_config = load_position_yaml(args.position)
-        print(f"📋 Position profile: {args.position}")
-        print(f"   {position_config.position_summary()}")
-
     from src.viewer.app import create_app
     app = create_app(
         results_dir=results_dir,
         applicants_dir=applicants_dir,
         llm_client=llm_client,
-        position_config=position_config,
     )
     app.run(host="127.0.0.1", port=port, debug=True)
 
@@ -682,6 +629,9 @@ def export_summary(args):
             "Fit Score (Human)": review.get("fit_score", ""),
             "Recommendation (Human)": review.get("overall_recommendation", ""),
             "Shortlisted": "Yes" if review.get("shortlist") else "No",
+            "Stage": review.get("stage", "received"),
+            "Rejected From": review.get("rejected_from", ""),
+            "Rejection Reason": review.get("rejection_reason", ""),
             "Reviewed": "Yes" if review.get("reviewed") else "No",
             "Committee Comments": review.get("comments", ""),
             "Teaching Notes": review.get("teaching_notes", ""),
@@ -714,7 +664,7 @@ def export_summary(args):
 # ── Argument Parser ──
 def main():
     parser = argparse.ArgumentParser(
-        description="Job Application Summarizer for Faculty Searches",
+        description="Job Application Summarizer for VAP Search",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -724,7 +674,6 @@ def main():
     # process
     p_process = subparsers.add_parser("process", help="Process applicant documents")
     p_process.add_argument("applicants_dir", help="Path to applicants directory")
-    p_process.add_argument("--position", help="Path to position YAML profile (e.g., positions/vap-teaching-2025.yaml)")
     p_process.add_argument("--model", help="LLM model name (GenAI Studio)")
     p_process.add_argument("--results-dir", help="Override results directory")
     p_process.add_argument("--reprocess", action="store_true",
@@ -742,9 +691,6 @@ def main():
     p_rank = subparsers.add_parser("rank", help="Run comparative ranking on processed results")
     p_rank.add_argument("--model", help="LLM model name (GenAI Studio)")
     p_rank.add_argument("--results-dir", help="Override results directory")
-    p_rank.add_argument("--position", help="Path to position YAML profile")
-    p_rank.add_argument("--ensemble", action="store_true",
-                         help="Use multi-model ensemble for ranking (runs ranking across all ensemble models, then synthesizes)")
 
     # serve
     p_serve = subparsers.add_parser("serve", help="Launch web viewer")
@@ -754,7 +700,6 @@ def main():
     p_serve.add_argument("--model", help="LLM model for chat (default: evaluation model from config)")
     p_serve.add_argument("--no-chat", action="store_true",
                          help="Disable chat interface (viewer-only, no LLM needed)")
-    p_serve.add_argument("--position", help="Path to position YAML profile (for chat context)")
 
     # status
     p_status = subparsers.add_parser("status", help="Show processing status")

@@ -24,7 +24,6 @@ def create_app(
     results_dir: Path | str | None = None,
     applicants_dir: Path | str | None = None,
     llm_client=None,
-    position_config=None,
 ) -> Flask:
     """
     Create and configure the Flask application.
@@ -34,15 +33,30 @@ def create_app(
         applicants_dir: Path to original applicant folders (for document serving).
         llm_client: Optional LLMClient instance for the chat interface.
                     If None, chat with applicant KBs is disabled.
-        position_config: Optional Config with position details for chat context.
-                         If None, tries to load from processing_meta.json.
 
     Returns:
         Configured Flask app.
     """
     app = Flask(__name__)
     app.config["LLM_CLIENT"] = llm_client
-    app.config["POSITION_CONFIG"] = position_config
+
+    # ── Stage Pipeline ──
+    # Ordered progression for the hiring process
+    STAGES = [
+        {"id": "received",     "label": "Received",     "emoji": "📥", "color": "gray",   "tw": "gray"},
+        {"id": "screening",    "label": "Screening",    "emoji": "🔍", "color": "blue",   "tw": "blue"},
+        {"id": "short_list",   "label": "Short List",   "emoji": "📋", "color": "yellow", "tw": "yellow"},
+        {"id": "interview",    "label": "Interview",    "emoji": "🎤", "color": "purple", "tw": "violet"},
+        {"id": "campus_visit", "label": "Campus Visit", "emoji": "🏛️", "color": "cyan",   "tw": "cyan"},
+        {"id": "offer",        "label": "Offer",        "emoji": "🎉", "color": "green",  "tw": "green"},
+    ]
+    STAGE_IDS = [s["id"] for s in STAGES]
+    STAGE_MAP = {s["id"]: s for s in STAGES}
+    # "rejected" is special — not in the progression
+    STAGE_MAP["rejected"] = {"id": "rejected", "label": "Rejected", "emoji": "✕", "color": "red", "tw": "red"}
+
+    app.config["STAGES"] = STAGES
+    app.config["STAGE_MAP"] = STAGE_MAP
 
     # Resolve paths
     if results_dir:
@@ -54,42 +68,6 @@ def create_app(
         app.config["APPLICANTS_DIR"] = Path(applicants_dir).resolve()
     else:
         app.config["APPLICANTS_DIR"] = None
-
-    # ── Chat System Prompt Builder ──
-
-    def _build_chat_system_prompt(applicant_name: str, folder_name: str) -> str:
-        """Build system prompt for RAG chat, using position config if available."""
-        cfg = app.config.get("POSITION_CONFIG")
-
-        if cfg:
-            position_desc = cfg.position_summary()
-            department = cfg.position.department
-            university = cfg.position.university
-        else:
-            # Try loading from processing_meta.json
-            meta_file = app.config["RESULTS_DIR"] / folder_name / "processing_meta.json"
-            position_desc = "a faculty position"
-            department = "the department"
-            university = "the university"
-            if meta_file.exists():
-                try:
-                    with open(meta_file) as f:
-                        meta = json.load(f)
-                    pos = meta.get("position", {})
-                    position_desc = pos.get("summary", position_desc)
-                    department = pos.get("department", department)
-                    university = pos.get("university", university)
-                except Exception:
-                    pass
-
-        return (
-            f"You are a helpful assistant reviewing the job application of {applicant_name} "
-            f"for {position_desc} in {department} at {university}. "
-            f"You have access to all of this applicant's documents (CV, cover letter, "
-            f"teaching statement, research statement, letters of recommendation) via a "
-            f"knowledge base. Answer questions about this applicant based on their documents. "
-            f"Be specific, cite document details, and note if information is not found."
-        )
 
     # ── Helper Functions ──
 
@@ -349,8 +327,15 @@ def create_app(
                 with open(docs_file) as f:
                     data = json.load(f)
                 source = data.get("source_folder")
-                if source and Path(source).is_dir():
-                    return Path(source)
+                if source:
+                    source_path = Path(source)
+                    # Try as-is (absolute path)
+                    if source_path.is_absolute() and source_path.is_dir():
+                        return source_path
+                    # Try relative to project root (results_dir parent)
+                    relative = app.config["RESULTS_DIR"].parent / source_path
+                    if relative.is_dir():
+                        return relative.resolve()
             except Exception:
                 pass
 
@@ -368,8 +353,15 @@ def create_app(
         filter_rec = request.args.get("rec", "all")
         min_teaching = int(request.args.get("min_teaching", 0))
         filter_show = request.args.get("show", "all")
+        filter_stage = request.args.get("stage", "all")
 
         # Apply filters
+        if filter_stage != "all":
+            applicants = [
+                a for a in applicants
+                if a.get("review", {}).get("stage", "received") == filter_stage
+            ]
+
         if filter_rec != "all":
             applicants = [
                 a for a in applicants
@@ -419,6 +411,14 @@ def create_app(
         elif sort_by == "name":
             applicants.sort(key=lambda a: a["profile"].get("name", ""))
 
+        # Compute stage counts (before filtering)
+        all_applicants_for_counts = _load_all_applicants()
+        stage_counts = {s["id"]: 0 for s in STAGES}
+        stage_counts["rejected"] = 0
+        for a in all_applicants_for_counts:
+            st = a.get("review", {}).get("stage", "received")
+            stage_counts[st] = stage_counts.get(st, 0) + 1
+
         return render_template(
             "dashboard.html",
             applicants=applicants,
@@ -427,6 +427,10 @@ def create_app(
             filter_rec=filter_rec,
             min_teaching=min_teaching,
             filter_show=filter_show,
+            filter_stage=filter_stage,
+            stages=STAGES,
+            stage_map=STAGE_MAP,
+            stage_counts=stage_counts,
         )
 
     @app.route("/applicant/<folder_name>")
@@ -440,7 +444,7 @@ def create_app(
         doc_folder = _resolve_applicant_folder(folder_name)
         data["can_serve_documents"] = doc_folder is not None
 
-        return render_template("applicant.html", data=data)
+        return render_template("applicant.html", data=data, stages=STAGES, stage_map=STAGE_MAP)
 
     # ── API Routes ──
 
@@ -642,6 +646,81 @@ def create_app(
         else:
             return jsonify({"error": "Save failed"}), 500
 
+    @app.route("/api/applicant/<folder_name>/stage", methods=["POST"])
+    def api_set_stage(folder_name: str):
+        """
+        Set an applicant's pipeline stage.
+
+        JSON body: {"stage": "short_list"} or {"action": "advance"} or {"action": "reject", "reason": "..."}
+        """
+        from datetime import datetime
+
+        results_path = app.config["RESULTS_DIR"] / folder_name
+        if not results_path.is_dir():
+            abort(404)
+
+        incoming = request.get_json(silent=True) or {}
+        existing = _load_human_review(folder_name)
+
+        current_stage = existing.get("stage", "received")
+
+        if "stage" in incoming:
+            # Direct stage set
+            new_stage = incoming["stage"]
+            if new_stage not in STAGE_MAP:
+                return jsonify({"error": f"Unknown stage: {new_stage}"}), 400
+            existing["stage"] = new_stage
+
+        elif incoming.get("action") == "advance":
+            # Move to next stage in pipeline
+            if current_stage == "rejected":
+                return jsonify({"error": "Cannot advance a rejected applicant. Set stage manually to restore."}), 400
+            if current_stage in STAGE_IDS:
+                idx = STAGE_IDS.index(current_stage)
+                if idx < len(STAGE_IDS) - 1:
+                    existing["stage"] = STAGE_IDS[idx + 1]
+                else:
+                    return jsonify({"error": f"Already at final stage: {current_stage}"}), 400
+            else:
+                existing["stage"] = STAGE_IDS[1]  # Move from unknown to screening
+
+        elif incoming.get("action") == "reject":
+            existing["stage"] = "rejected"
+            existing["rejected_from"] = current_stage
+            if incoming.get("reason"):
+                existing["rejection_reason"] = incoming["reason"]
+
+        else:
+            return jsonify({"error": "Provide 'stage', or 'action' (advance/reject)"}), 400
+
+        # Track stage history
+        if "stage_history" not in existing:
+            existing["stage_history"] = []
+        existing["stage_history"].append({
+            "from": current_stage,
+            "to": existing["stage"],
+            "at": datetime.now().isoformat(),
+        })
+
+        if _save_human_review(folder_name, existing):
+            return jsonify({
+                "ok": True,
+                "stage": existing["stage"],
+                "stage_info": STAGE_MAP.get(existing["stage"], {}),
+            })
+        return jsonify({"error": "Save failed"}), 500
+
+    @app.route("/api/stages/summary")
+    def api_stages_summary():
+        """Get count of applicants in each stage."""
+        applicants = _load_all_applicants()
+        counts = {s["id"]: 0 for s in STAGES}
+        counts["rejected"] = 0
+        for a in applicants:
+            stage = a.get("review", {}).get("stage", "received")
+            counts[stage] = counts.get(stage, 0) + 1
+        return jsonify({"counts": counts, "total": len(applicants)})
+
     # ── Chat with Applicant KB ──
 
     @app.route("/api/applicant/<folder_name>/chat", methods=["POST"])
@@ -681,7 +760,14 @@ def create_app(
             except Exception:
                 pass
 
-        system_prompt = _build_chat_system_prompt(applicant_name, folder_name)
+        system_prompt = (
+            f"You are a helpful assistant reviewing the job application of {applicant_name} "
+            f"for a Visiting Assistant Professor position in Statistics at Purdue University. "
+            f"You have access to all of this applicant's documents (CV, cover letter, "
+            f"teaching statement, research statement, letters of recommendation) via a "
+            f"knowledge base. Answer questions about this applicant based on their documents. "
+            f"Be specific, cite document details, and note if information is not found."
+        )
 
         try:
             response = client.query(
@@ -802,5 +888,32 @@ def create_app(
             return json.dumps(value, indent=2, default=str)
         except (TypeError, ValueError):
             return str(value)
+
+    @app.template_filter("stage_color")
+    def stage_color_filter(stage_id):
+        """Map stage ID to Tailwind color."""
+        tw_map = {s["id"]: s["tw"] for s in STAGES}
+        tw_map["rejected"] = "red"
+        return tw_map.get(stage_id, "gray")
+
+    @app.template_filter("stage_emoji")
+    def stage_emoji_filter(stage_id):
+        """Map stage ID to emoji."""
+        info = STAGE_MAP.get(stage_id, {})
+        return info.get("emoji", "❓")
+
+    @app.template_filter("stage_label")
+    def stage_label_filter(stage_id):
+        """Map stage ID to display label."""
+        info = STAGE_MAP.get(stage_id, {})
+        return info.get("label", stage_id)
+
+    @app.template_global()
+    def index_of(lst, value):
+        """Get index of value in list, or -1 if not found."""
+        try:
+            return list(lst).index(value)
+        except (ValueError, TypeError):
+            return -1
 
     return app

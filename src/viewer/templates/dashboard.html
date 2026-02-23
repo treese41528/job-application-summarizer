@@ -2,15 +2,63 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
+<!-- Stage Pipeline Bar -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
+    <div class="flex items-center gap-1 overflow-x-auto">
+        <!-- All -->
+        <a href="/?stage=all&sort={{ sort_by }}&rec={{ filter_rec }}&min_teaching={{ min_teaching }}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap
+                  {{ 'bg-purdue-gold/20 text-purdue-gold border border-purdue-gold/40' if filter_stage == 'all' else 'text-gray-400 hover:bg-gray-800' }}">
+            All <span class="text-xs opacity-60">{{ stage_counts.values()|sum }}</span>
+        </a>
+
+        <span class="text-gray-700 mx-1">│</span>
+
+        {% for s in stages %}
+        <a href="/?stage={{ s.id }}&sort={{ sort_by }}&rec={{ filter_rec }}&min_teaching={{ min_teaching }}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap
+                  {{ 'bg-' + s.tw + '-900/30 text-' + s.tw + '-400 border border-' + s.tw + '-700/50' if filter_stage == s.id else 'text-gray-400 hover:bg-gray-800' }}">
+            {{ s.emoji }} {{ s.label }}
+            {% if stage_counts.get(s.id, 0) > 0 %}
+            <span class="bg-{{ s.tw }}-900/50 text-{{ s.tw }}-300 text-xs px-1.5 py-0.5 rounded-full">{{ stage_counts[s.id] }}</span>
+            {% endif %}
+        </a>
+        {% if not loop.last %}
+        <span class="text-gray-700">→</span>
+        {% endif %}
+        {% endfor %}
+
+        <span class="text-gray-700 mx-1">│</span>
+
+        <!-- Rejected -->
+        <a href="/?stage=rejected&sort={{ sort_by }}&rec={{ filter_rec }}&min_teaching={{ min_teaching }}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap
+                  {{ 'bg-red-900/30 text-red-400 border border-red-700/50' if filter_stage == 'rejected' else 'text-gray-500 hover:bg-gray-800' }}">
+            ✕ Rejected
+            {% if stage_counts.get('rejected', 0) > 0 %}
+            <span class="bg-red-900/50 text-red-300 text-xs px-1.5 py-0.5 rounded-full">{{ stage_counts['rejected'] }}</span>
+            {% endif %}
+        </a>
+    </div>
+</div>
+
 <!-- Header & Controls -->
 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-gray-100">Applicants</h2>
-        <p class="text-sm text-gray-500 mt-1">{{ total }} candidate{{ 's' if total != 1 }} · Visiting Assistant Professor (Teaching Focus, 2-year)</p>
+        <h2 class="text-2xl font-bold text-gray-100">
+            {% if filter_stage != 'all' %}
+                {{ stage_map[filter_stage].emoji }} {{ stage_map[filter_stage].label }}
+            {% else %}
+                Applicants
+            {% endif %}
+        </h2>
+        <p class="text-sm text-gray-500 mt-1">{{ total }} candidate{{ 's' if total != 1 }}{% if filter_stage != 'all' %} in this stage{% endif %}</p>
     </div>
 
     <!-- Filters -->
     <form method="GET" action="/" class="flex flex-wrap items-center gap-3 text-sm">
+        <input type="hidden" name="stage" value="{{ filter_stage }}">
+
         <label class="text-gray-400">Sort:</label>
         <select name="sort" onchange="this.form.submit()"
                 class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200 text-sm">
@@ -44,7 +92,6 @@
         <select name="show" onchange="this.form.submit()"
                 class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200 text-sm">
             <option value="all" {{ 'selected' if filter_show == 'all' }}>All</option>
-            <option value="shortlisted" {{ 'selected' if filter_show == 'shortlisted' }}>★ Shortlisted</option>
             <option value="reviewed" {{ 'selected' if filter_show == 'reviewed' }}>✓ Reviewed</option>
             <option value="unreviewed" {{ 'selected' if filter_show == 'unreviewed' }}>Unreviewed</option>
         </select>
@@ -63,124 +110,161 @@
     {% set e = a.evaluation %}
     {% set rv = a.get('review', {}) %}
     {% set pm = a.get('processing_meta', {}) %}
-    <a href="/applicant/{{ a.folder_name }}"
-       class="card-hover block bg-gray-900 border {{ 'border-purdue-gold/40' if rv.get('shortlist') else 'border-gray-800' }} rounded-lg p-5 applicant-card"
-       data-name="{{ p.name|lower }}">
+    {% set app_stage = rv.get('stage', 'received') %}
+    {% set si = stage_map.get(app_stage, stage_map['received']) %}
+    <div class="card-hover bg-gray-900 border {{ 'border-red-800/40' if app_stage == 'rejected' else ('border-' + si.tw + '-800/30' if app_stage != 'received' else 'border-gray-800') }} rounded-lg applicant-card"
+         data-name="{{ p.name|lower }}" data-folder="{{ a.folder_name }}">
 
-        <!-- Header row -->
-        <div class="flex items-start justify-between mb-3">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                    <h3 class="font-semibold text-gray-100 truncate">{{ p.name }}</h3>
-                    {% if rv.get('shortlist') %}
-                    <span class="text-purdue-gold text-xs">★</span>
-                    {% endif %}
-                    {% if rv.get('reviewed') %}
-                    <span class="text-xs text-purdue-gold/60">✓</span>
+        <!-- Stage badge strip -->
+        {% if app_stage != 'received' %}
+        <div class="px-4 py-1.5 rounded-t-lg text-xs font-medium
+                    {{ 'bg-red-900/20 text-red-400' if app_stage == 'rejected' else 'bg-' + si.tw + '-900/20 text-' + si.tw + '-400' }}">
+            {{ si.emoji }} {{ si.label }}
+            {% if app_stage == 'rejected' and rv.get('rejected_from') %}
+            <span class="text-gray-500 ml-1">(from {{ rv.rejected_from|stage_label }})</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <a href="/applicant/{{ a.folder_name }}" class="block p-5 {{ 'pt-3' if app_stage != 'received' }}">
+
+            <!-- Header row -->
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-gray-100 truncate">{{ p.name }}</h3>
+                        {% if rv.get('reviewed') %}
+                        <span class="text-xs text-purdue-gold/60">✓</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-gray-500 truncate mt-0.5">
+                        {{ p.terminal_degree or 'Degree not specified' }}
+                        {% if p.degree_status and p.degree_status != 'Completed' %}
+                            <span class="text-yellow-500">({{ p.degree_status }})</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-xs text-gray-600 truncate">{{ p.degree_institution }}</p>
+                </div>
+                <span class="text-xl ml-2" title="{{ e.overall_recommendation }}">
+                    {{ e.overall_recommendation|rec_emoji }}
+                </span>
+            </div>
+
+            <!-- Ratings -->
+            <div class="flex items-center gap-4 text-xs mb-3">
+                <div>
+                    <span class="text-gray-500">Teaching:</span>
+                    <span class="stars">{{ e.teaching_stars|stars }}</span>
+                    {% if e.get('_overrides', {}).get('teaching_stars') %}
+                    <span class="text-purdue-gold/50 text-xs" title="Human override">✎</span>
                     {% endif %}
                 </div>
-                <p class="text-xs text-gray-500 truncate mt-0.5">
-                    {{ p.terminal_degree or 'Degree not specified' }}
-                    {% if p.degree_status and p.degree_status != 'Completed' %}
-                        <span class="text-yellow-500">({{ p.degree_status }})</span>
+                <div>
+                    <span class="text-gray-500">Research:</span>
+                    <span class="stars">{{ e.research_stars|stars }}</span>
+                    {% if e.get('_overrides', {}).get('research_stars') %}
+                    <span class="text-purdue-gold/50 text-xs" title="Human override">✎</span>
                     {% endif %}
-                </p>
-                <p class="text-xs text-gray-600 truncate">{{ p.degree_institution }}</p>
+                </div>
             </div>
-            <span class="text-xl ml-2" title="{{ e.overall_recommendation }}">
-                {{ e.overall_recommendation|rec_emoji }}
-            </span>
-        </div>
 
-        <!-- Ratings -->
-        <div class="flex items-center gap-4 text-xs mb-3">
-            <div>
-                <span class="text-gray-500">Teaching:</span>
-                <span class="stars">{{ e.teaching_stars|stars }}</span>
-                {% if e.get('_overrides', {}).get('teaching_stars') %}
-                <span class="text-purdue-gold/50 text-xs" title="Human override">✎</span>
+            <!-- Comparative scores (if available) -->
+            {% set comp = a.get('comparative', {}) %}
+            {% if comp.get('tier') %}
+            <div class="flex items-center gap-3 text-xs mb-3 p-2 bg-gray-800/50 rounded">
+                <span class="font-medium {{ {'Top':'text-green-400','Strong':'text-blue-400','Middle':'text-yellow-400','Below Average':'text-orange-400','Weak':'text-red-400'}.get(comp.tier, 'text-gray-400') }}">
+                    {{ {'Top':'🏆','Strong':'🟢','Middle':'🟡','Below Average':'🟠','Weak':'🔴'}.get(comp.tier, '⚪') }} {{ comp.tier }}
+                </span>
+                <span class="text-gray-500">
+                    Curved: T:{{ comp.teaching_curved }}⭐ R:{{ comp.research_curved }}⭐
+                </span>
+                <span class="text-gray-600">#{{ comp.teaching_rank }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Quick stats -->
+            <div class="flex flex-wrap gap-2 text-xs mb-3">
+                {% if p.is_statistics_adjacent %}
+                <span class="bg-green-900/30 text-green-400 px-2 py-0.5 rounded">Stats-Adjacent ✓</span>
+                {% else %}
+                <span class="bg-red-900/30 text-red-400 px-2 py-0.5 rounded">Non-Adjacent</span>
+                {% endif %}
+
+                {% if p.ai_in_education %}
+                <span class="bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">AI in Ed ✓</span>
+                {% endif %}
+
+                {% set instructor_count = p.courses_taught|selectattr('role', 'in', ['instructor', 'co-instructor'])|list|length %}
+                {% if instructor_count > 0 %}
+                <span class="bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">{{ instructor_count }} courses taught</span>
+                {% endif %}
+
+                {% if pm.get('rag_enabled') %}
+                <span class="bg-cyan-900/30 text-cyan-400 px-2 py-0.5 rounded">📚 RAG</span>
+                {% endif %}
+                {% if pm.get('ensemble_enabled') %}
+                <span class="bg-violet-900/30 text-violet-400 px-2 py-0.5 rounded">🤖 Ensemble</span>
                 {% endif %}
             </div>
-            <div>
-                <span class="text-gray-500">Research:</span>
-                <span class="stars">{{ e.research_stars|stars }}</span>
-                {% if e.get('_overrides', {}).get('research_stars') %}
-                <span class="text-purdue-gold/50 text-xs" title="Human override">✎</span>
-                {% endif %}
+
+            <!-- Red flags -->
+            {% if e.red_flags %}
+            <div class="text-xs text-orange-400 mb-2">
+                ⚠️ {{ e.red_flags|length }} red flag{{ 's' if e.red_flags|length != 1 }}
             </div>
-        </div>
+            {% endif %}
 
-        <!-- Comparative scores (if available) -->
-        {% set comp = a.get('comparative', {}) %}
-        {% if comp.get('tier') %}
-        <div class="flex items-center gap-3 text-xs mb-3 p-2 bg-gray-800/50 rounded">
-            <span class="font-medium {{ {'Top':'text-green-400','Strong':'text-blue-400','Middle':'text-yellow-400','Below Average':'text-orange-400','Weak':'text-red-400'}.get(comp.tier, 'text-gray-400') }}">
-                {{ {'Top':'🏆','Strong':'🟢','Middle':'🟡','Below Average':'🟠','Weak':'🔴'}.get(comp.tier, '⚪') }} {{ comp.tier }}
-            </span>
-            <span class="text-gray-500">
-                Curved: T:{{ comp.teaching_curved }}⭐ R:{{ comp.research_curved }}⭐
-            </span>
-            <span class="text-gray-600">#{{ comp.teaching_rank }}</span>
+            <!-- Comment preview -->
+            {% if rv.get('comments') %}
+            <div class="text-xs text-gray-500 mb-2 truncate italic">
+                💬 {{ rv.comments[:80] }}{{ '...' if rv.comments|length > 80 }}
+            </div>
+            {% endif %}
+
+            <!-- Recommendation -->
+            <div class="mt-auto">
+                <span class="text-xs font-medium {{ e.overall_recommendation|rec_color }}">
+                    {{ e.overall_recommendation }}
+                </span>
+            </div>
+        </a>
+
+        <!-- Quick stage actions (on card footer) -->
+        {% if app_stage != 'rejected' and app_stage != 'offer' %}
+        <div class="flex items-center justify-between px-4 py-2 border-t border-gray-800 text-xs">
+            <button onclick="event.stopPropagation(); advanceFromCard('{{ a.folder_name }}')"
+                    class="text-green-400 hover:text-green-300 transition-colors">
+                ▶ Advance
+            </button>
+            <button onclick="event.stopPropagation(); rejectFromCard('{{ a.folder_name }}')"
+                    class="text-red-400/50 hover:text-red-400 transition-colors">
+                ✕ Reject
+            </button>
+        </div>
+        {% elif app_stage == 'rejected' %}
+        <div class="flex items-center justify-center px-4 py-2 border-t border-gray-800 text-xs">
+            <button onclick="event.stopPropagation(); restoreFromCard('{{ a.folder_name }}')"
+                    class="text-yellow-400/60 hover:text-yellow-400 transition-colors">
+                ↩ Restore to Received
+            </button>
         </div>
         {% endif %}
-
-        <!-- Quick stats -->
-        <div class="flex flex-wrap gap-2 text-xs mb-3">
-            {% if p.is_statistics_adjacent %}
-            <span class="bg-green-900/30 text-green-400 px-2 py-0.5 rounded">Stats-Adjacent ✓</span>
-            {% else %}
-            <span class="bg-red-900/30 text-red-400 px-2 py-0.5 rounded">Non-Adjacent</span>
-            {% endif %}
-
-            {% if p.ai_in_education %}
-            <span class="bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">AI in Ed ✓</span>
-            {% endif %}
-
-            {% set instructor_count = p.courses_taught|selectattr('role', 'in', ['instructor', 'co-instructor'])|list|length %}
-            {% if instructor_count > 0 %}
-            <span class="bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">{{ instructor_count }} courses taught</span>
-            {% endif %}
-
-            {# RAG / Ensemble badges #}
-            {% if pm.get('rag_enabled') %}
-            <span class="bg-cyan-900/30 text-cyan-400 px-2 py-0.5 rounded" title="Evaluated with RAG knowledge base">📚 RAG</span>
-            {% endif %}
-            {% if pm.get('ensemble_enabled') %}
-            <span class="bg-violet-900/30 text-violet-400 px-2 py-0.5 rounded" title="Evaluated with {{ pm.get('ensemble_models', [])|length }}-model ensemble">🤖 Ensemble</span>
-            {% endif %}
-        </div>
-
-        <!-- Red flags -->
-        {% if e.red_flags %}
-        <div class="text-xs text-orange-400 mb-2">
-            ⚠️ {{ e.red_flags|length }} red flag{{ 's' if e.red_flags|length != 1 }}
-        </div>
-        {% endif %}
-
-        <!-- Comment preview -->
-        {% if rv.get('comments') %}
-        <div class="text-xs text-gray-500 mb-2 truncate italic">
-            💬 {{ rv.comments[:80] }}{{ '...' if rv.comments|length > 80 }}
-        </div>
-        {% endif %}
-
-        <!-- Recommendation -->
-        <div class="mt-auto">
-            <span class="text-xs font-medium {{ e.overall_recommendation|rec_color }}">
-                {{ e.overall_recommendation }}
-            </span>
-        </div>
-    </a>
+    </div>
     {% endfor %}
 </div>
 
 {% else %}
 <!-- Empty State -->
 <div class="text-center py-20">
+    {% if filter_stage != 'all' %}
+    <p class="text-gray-500 text-lg">No applicants in {{ stage_map[filter_stage].emoji }} {{ stage_map[filter_stage].label }}</p>
+    <p class="text-gray-600 text-sm mt-2">Advance applicants from earlier stages to move them here.</p>
+    {% else %}
     <p class="text-gray-500 text-lg">No applicants found</p>
     <p class="text-gray-600 text-sm mt-2">
         Run <code class="bg-gray-800 px-2 py-1 rounded text-purdue-gold">python run.py process &lt;applicants_dir&gt;</code> first
     </p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -200,6 +284,41 @@
                 card.style.display = name.includes(query) ? '' : 'none';
             });
         });
+    }
+
+    // Stage actions from card footer
+    async function advanceFromCard(folder) {
+        const resp = await fetch(`/api/applicant/${folder}/stage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'advance'}),
+        });
+        const data = await resp.json();
+        if (data.ok) location.reload();
+        else alert(data.error || 'Failed to advance');
+    }
+
+    async function rejectFromCard(folder) {
+        if (!confirm('Reject this applicant? You can restore them later.')) return;
+        const resp = await fetch(`/api/applicant/${folder}/stage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'reject'}),
+        });
+        const data = await resp.json();
+        if (data.ok) location.reload();
+        else alert(data.error || 'Failed to reject');
+    }
+
+    async function restoreFromCard(folder) {
+        const resp = await fetch(`/api/applicant/${folder}/stage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({stage: 'received'}),
+        });
+        const data = await resp.json();
+        if (data.ok) location.reload();
+        else alert(data.error || 'Failed to restore');
     }
 </script>
 {% endblock %}
