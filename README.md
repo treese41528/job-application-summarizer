@@ -1,6 +1,6 @@
 # Job Application Summarizer
 
-An LLM-powered pipeline that processes faculty job applications — configurable for any academic position type via YAML position profiles. It extracts text from PDF/DOCX documents, uses **Purdue GenAI Studio** LLMs to categorize, profile, and evaluate applicants, then ranks the pool comparatively and presents results in a local web viewer with a chat interface for follow-up questions against each applicant's documents.
+An LLM-powered pipeline that processes faculty job applications — configurable for any academic position type via YAML position profiles. It extracts text from PDF/DOCX documents, uses **Purdue GenAI Studio** LLMs to categorize, profile, and evaluate applicants, then ranks the pool comparatively and presents results in a local web viewer with a stage-based hiring pipeline and chat interface for follow-up questions against each applicant's documents.
 
 Default configuration targets a **Visiting Assistant Professor (Teaching Focus, 2-year)** position in the Department of Statistics at Purdue University, but position profiles can be swapped via `--position` for tenure-track, research-focused, lecturer, or other searches.
 
@@ -15,6 +15,7 @@ Default configuration targets a **Visiting Assistant Professor (Teaching Focus, 
 - [Position Profiles](#position-profiles)
 - [Processing Pipeline](#processing-pipeline)
 - [Evaluation Modes](#evaluation-modes)
+- [Stage Pipeline](#stage-pipeline)
 - [CLI Reference](#cli-reference)
 - [Web Viewer](#web-viewer)
 - [Human Review Overlay](#human-review-overlay)
@@ -75,6 +76,7 @@ your-working-directory/
 │   ├── run.py                          # CLI entry point (orchestrator)
 │   ├── genai_studio.py                 # Purdue GenAI Studio SDK (copy here)
 │   ├── cleanup_rag.py                  # Standalone KB teardown script
+│   ├── fix_paths.py                    # Fix document paths after moving machines
 │   ├── requirements.txt
 │   ├── positions/                      # Position profile YAML files
 │   │   ├── vap-teaching-2025.yaml      # VAP teaching-focused (default config)
@@ -100,7 +102,7 @@ your-working-directory/
 │   │   │   ├── prompts.py             # All prompt templates (classic, RAG, synthesis)
 │   │   │   └── comparative.py         # Cross-pool ranking with curved scores + ensemble
 │   │   └── viewer/
-│   │       ├── app.py                 # Flask web app
+│   │       ├── app.py                 # Flask web app (stages, chat, review API)
 │   │       ├── templates/             # dashboard.html, applicant.html, base.html
 │   │       └── static/               # styles.css, app.js
 │   ├── data/
@@ -130,6 +132,7 @@ your-working-directory/
 | Comparative ranking | LLM `query_json()` | Cross-pool comparison table |
 | Comparative ranking (ensemble) | Multiple LLMs → synthesizer | Each model ranks independently, then consensus |
 | Chat interface | LLM `chat()` with `collections=[kb_id]` | Real-time Q&A against applicant's documents |
+| Stage management | Viewer API | Committee-driven pipeline progression |
 
 ---
 
@@ -230,6 +233,9 @@ Applicant Folder
      │
      ▼
  ⑦ Rank            Comparative ranking across the entire pool (auto-runs after processing)
+     │
+     ▼
+ ⑧ Review          Committee reviews in viewer → advance through stage pipeline
 ```
 
 ### What happens at each stage
@@ -245,6 +251,8 @@ Applicant Folder
 **Evaluate** — Three evaluation steps (teaching, research, fit/flags) are run using position-aware prompts (rubrics, red flags, and emphasis injected from config or `--position` YAML). In RAG mode, prompts are shorter and reference the KB for full document retrieval. In ensemble mode, each step runs across multiple models independently, then a synthesis model merges the results. Recommendation letters are summarized individually.
 
 **Rank** — After all applicants are processed, a comparison table is built and sent to the LLM for curve-adjusted scores and tier assignments (Top, Strong, Middle, Below Average, Weak) relative to the pool. The primary dimension (from config) is weighted more heavily.
+
+**Review** — The committee uses the web viewer to review evaluations, override ratings, add notes, and advance applicants through the stage pipeline from Received through to Offer (or reject at any point).
 
 ---
 
@@ -308,6 +316,69 @@ python run.py process ../vap-search-2025/ --no-rag
 python run.py rank --ensemble
 python run.py rank --ensemble --position positions/vap-teaching-2025.yaml
 ```
+
+---
+
+## Stage Pipeline
+
+The web viewer includes a hiring pipeline that tracks each applicant's progression through the review process. Stages are managed entirely through the viewer interface — no CLI needed after initial processing.
+
+### Stages
+
+```
+📥 Received → 🔍 Screening → 📋 Short List → 🎤 Interview → 🏛️ Campus Visit → 🎉 Offer
+
+                              ✕ Rejected (from any stage)
+```
+
+| Stage | Meaning |
+|-------|---------|
+| 📥 Received | Application processed by the pipeline, awaiting committee review |
+| 🔍 Screening | Under active review (reading materials, checking qualifications) |
+| 📋 Short List | Identified as a strong candidate for further consideration |
+| 🎤 Interview | Selected for phone/video interview |
+| 🏛️ Campus Visit | Invited for on-campus visit and job talk |
+| 🎉 Offer | Position offered to this candidate |
+| ✕ Rejected | Not advancing (tracks which stage they were rejected from) |
+
+### How it works
+
+**Dashboard** — A pipeline bar across the top shows all stages with applicant counts. Click any stage to filter the view. Each applicant card has ▶ Advance and ✕ Reject buttons directly on it for quick triage without opening detail pages.
+
+**Applicant Detail** — A clickable stage progression bar lets you jump to any stage directly (for corrections) or use the Advance/Reject action buttons. Rejecting prompts for an optional reason. Rejected applicants can be restored to Received.
+
+**Stage History** — Every stage transition is logged with a timestamp in `human_review.json`, providing a full audit trail of committee decisions.
+
+### Filtering by stage
+
+The dashboard pipeline bar doubles as a filter. Click a stage to see only applicants at that point in the process. The "All" view shows everyone with stage badges on their cards. Stage filtering combines with existing sort/filter controls (recommendation, teaching stars, etc.).
+
+### Data storage
+
+Stage data is stored in the existing `human_review.json` per applicant:
+
+```json
+{
+  "stage": "short_list",
+  "stage_history": [
+    {"from": "received", "to": "screening", "at": "2025-02-18T10:30:00"},
+    {"from": "screening", "to": "short_list", "at": "2025-02-19T14:15:00"}
+  ],
+  "rejected_from": null,
+  "rejection_reason": null
+}
+```
+
+Applicants without a `stage` field default to "received" — fully backward-compatible with existing results.
+
+### Stage API
+
+| Method | Endpoint | Body |
+|--------|----------|------|
+| `POST` | `/api/applicant/<n>/stage` | `{"action": "advance"}` |
+| `POST` | `/api/applicant/<n>/stage` | `{"action": "reject", "reason": "..."}` |
+| `POST` | `/api/applicant/<n>/stage` | `{"stage": "short_list"}` (direct set) |
+| `GET` | `/api/stages/summary` | — (returns counts per stage) |
 
 ---
 
@@ -425,7 +496,7 @@ Shows a table with document counts, processing status, RAG status, and ensemble 
 python run.py export <applicants_dir> [--output FILE] [--results-dir DIR]
 ```
 
-Exports all processed results (including human review overrides, comparative rankings, and processing metadata) to a CSV file. Default output: `applicant_summary.csv`.
+Exports all processed results (including human review overrides, stage pipeline status, comparative rankings, and processing metadata) to a CSV file. Default output: `applicant_summary.csv`. Stage columns include: Stage, Rejected From, Rejection Reason.
 
 ### `cleanup-kbs` — Delete Knowledge Bases
 
@@ -443,21 +514,25 @@ The viewer runs locally at `http://127.0.0.1:5000` and provides two main views.
 
 ### Dashboard
 
-A sortable grid showing all applicants with star ratings, tier badges, recommendation summaries, and shortlist status. Columns include teaching stars, research stars, fit score, tier (from comparative ranking), red flag count, and human review status.
+The dashboard shows a **stage pipeline bar** across the top with clickable stages and applicant counts — click any stage to filter the view. Below is a sortable grid showing all applicants with star ratings, tier badges, recommendation summaries, stage badges, and review status. Each card includes quick-action ▶ Advance and ✕ Reject buttons for fast triage.
+
+Sort options: teaching stars, research stars, fit score, comparative rank, name. Filter options: recommendation level, minimum teaching stars, stage, reviewed/unreviewed. A live search box filters by name.
 
 ### Applicant Detail Page
 
 A comprehensive single-page view for each applicant:
 
 - **Profile card** — Name, degree, institution, current position, adjacent field badge
+- **Stage pipeline** — Clickable progression bar showing current stage, advance/reject buttons with full stage history tracking
 - **Evaluation** — Teaching/research/fit ratings with detailed justifications
 - **Red flags** — Severity-tagged concerns with explanations
 - **Recommendation letters** — Individual summaries with tone and key quotes
 - **Executive summary** — Overall assessment
-- **Ensemble breakdown** — Per-model results (if ensemble was used)
+- **Ensemble breakdown** — Per-model results (collapsible, if ensemble was used)
 - **Comparative ranking** — Curved scores and tier assignment relative to pool
-- **Human review panel** — Override any LLM-generated field, add comments, toggle shortlist
+- **Human review panel** — Override any LLM-generated field, add committee comments
 - **Chat panel** — Floating chat interface to ask follow-up questions against the applicant's RAG knowledge base
+- **Processing metadata** — Collapsible section showing which models and modes were used
 
 ### Chat Interface
 
@@ -472,18 +547,26 @@ When RAG knowledge bases are available and the viewer is launched with an LLM cl
 
 ## Human Review Overlay
 
-The viewer supports a human review system that stores committee corrections and overrides in a separate `human_review.json` file without modifying the original LLM outputs. The viewer merges these on-the-fly when rendering.
+The viewer supports a human review system that stores committee corrections, stage progression, and overrides in a separate `human_review.json` file without modifying the original LLM outputs. The viewer merges these on-the-fly when rendering.
 
-Fields that can be overridden:
-- Teaching, research, and fit ratings
-- Overall recommendation
-- Profile fields (name, degree, institution, etc.)
-- Shortlist status (boolean)
-- Reviewed flag
-- Committee comments
-- Teaching notes and research notes
+### Overridable fields
 
-This design preserves the full audit trail: LLM outputs are immutable, and human corrections are transparent.
+- Teaching, research, and fit ratings (star widgets)
+- Overall recommendation (Strong / Moderate / Weak / Do Not Advance)
+- Profile fields (name, degree, institution, current position, etc.)
+- Boolean toggles (statistics-adjacent, AI in education)
+- Editable lists (technologies, research areas)
+- Committee comments, teaching notes, research notes
+
+### Stage tracking
+
+- Current stage in the hiring pipeline
+- Full stage history with timestamps
+- Rejection stage and optional rejection reason
+
+### Design principle
+
+LLM outputs are **immutable** — human corrections are stored separately and merged at display time. This preserves the full audit trail: you can always see what the LLM originally said versus what the committee changed.
 
 ---
 
@@ -552,12 +635,12 @@ For each processed applicant, the following JSON files are saved in `data/result
 | `profile.json` | Structured applicant profile (name, degree, courses, technologies, etc.) |
 | `evaluation.json` | Final evaluation (synthesized if ensemble was used) with star ratings, justifications, red flags, letter summaries, executive summary |
 | `evaluation_ensemble.json` | Per-model breakdowns from each ensemble member (if ensemble enabled) |
-| `documents.json` | Document metadata — filenames, categories, page counts (no raw text stored) |
+| `documents.json` | Document metadata — filenames, categories, page counts, relative source path (no raw text stored) |
 | `processing_meta.json` | Processing flags — RAG/ensemble enabled, models used, position metadata, timestamp |
 | `rag_metadata.json` | KB ID, file IDs, creation timestamp (if RAG enabled) |
 | `comparative.json` | Curved scores, tier, rank (written after comparative ranking) |
 | `comparative_ensemble.json` | Per-model ranking breakdowns (if ensemble ranking used) |
-| `human_review.json` | Committee overrides, comments, shortlist flag (written by viewer) |
+| `human_review.json` | Committee overrides, comments, stage pipeline status, stage history (written by viewer) |
 
 Raw document text is **never** stored on disk — only metadata. Text stays in memory during processing for privacy.
 
@@ -722,6 +805,21 @@ The chat interface requires RAG knowledge bases to exist on the server and an LL
 - The viewer was launched without `--no-chat`
 - `GENAI_STUDIO_API_KEY` is set
 
+### Document links broken after moving to another machine
+
+Document paths in `documents.json` may be absolute from the original machine. Fix with:
+
+```bash
+python fix_paths.py ./vap-search-2025/ --dry-run   # preview
+python fix_paths.py ./vap-search-2025/              # apply
+```
+
+Or always pass `--applicants-dir` when serving (bypasses stored paths entirely):
+
+```bash
+python run.py serve --applicants-dir ./vap-search-2025/
+```
+
 ### Empty text extraction from PDFs
 
 Some PDFs (especially scanned documents) yield no text. The pipeline reports this as "No text could be extracted." Consider OCR preprocessing or skipping that applicant.
@@ -736,6 +834,8 @@ Some PDFs (especially scanned documents) yield no text. The pipeline reports thi
 - Re-running `process` on an applicant will skip unless `--reprocess` is set
 - The tool works with any model available on Purdue GenAI Studio
 - Human review data is stored separately and never overwrites LLM outputs
+- Stage pipeline is fully backward-compatible — existing results default to "received"
+- Document paths are stored as relative paths for portability across machines
 - The `cleanup_rag.py` script has 3-layer safety confirmation for irreversible operations
 - Without `--position`, all behavior matches the original VAP teaching defaults
 
